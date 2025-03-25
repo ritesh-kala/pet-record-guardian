@@ -1,49 +1,78 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import OwnerCard from '@/components/ui-components/OwnerCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus } from 'lucide-react';
-
-// Mock data
-const owners = [
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john.smith@example.com',
-    phone: '(555) 123-4567',
-    address: '123 Main St, Anytown, USA 12345',
-    petCount: 2
-  },
-  {
-    id: '2',
-    name: 'Emily Johnson',
-    email: 'emily.johnson@example.com',
-    phone: '(555) 987-6543',
-    address: '456 Oak Ave, Somewhere, USA 67890',
-    petCount: 3
-  },
-  {
-    id: '3',
-    name: 'Michael Brown',
-    email: 'michael.brown@example.com',
-    phone: '(555) 456-7890',
-    address: '789 Pine Rd, Nowhere, USA 54321',
-    petCount: 1
-  },
-  {
-    id: '4',
-    name: 'Sarah Williams',
-    email: 'sarah.williams@example.com',
-    phone: '(555) 321-0987',
-    address: '321 Elm St, Anywhere, USA 10293',
-    petCount: 2
-  }
-];
+import { Search, Plus, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getOwners, Owner } from '@/lib/firestoreService';
+import { useToast } from '@/components/ui/use-toast';
 
 const Owners: React.FC = () => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { toast } = useToast();
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [filteredOwners, setFilteredOwners] = useState<Owner[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  useEffect(() => {
+    const fetchOwners = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setIsLoading(true);
+        const ownersData = await getOwners(currentUser.uid);
+        setOwners(ownersData);
+        setFilteredOwners(ownersData);
+      } catch (error) {
+        console.error('Error fetching owners:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load owners. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOwners();
+  }, [currentUser, toast]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredOwners(owners);
+    } else {
+      const filtered = owners.filter(owner => 
+        owner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        owner.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        owner.phone.includes(searchQuery)
+      );
+      setFilteredOwners(filtered);
+    }
+  }, [searchQuery, owners]);
+
+  const handleSort = () => {
+    const newSortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    setSortOrder(newSortOrder);
+    
+    const sorted = [...filteredOwners].sort((a, b) => {
+      if (newSortOrder === 'asc') {
+        return a.name.localeCompare(b.name);
+      } else {
+        return b.name.localeCompare(a.name);
+      }
+    });
+    
+    setFilteredOwners(sorted);
+  };
+
   return (
     <Layout>
       <div className="space-y-8">
@@ -60,21 +89,48 @@ const Owners: React.FC = () => {
             <Input 
               placeholder="Search owners..." 
               className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              Sort: Name A-Z
+            <Button variant="outline" size="sm" onClick={handleSort}>
+              Sort: Name {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
             </Button>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-          {owners.map((owner) => (
-            <OwnerCard key={owner.id} {...owner} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : filteredOwners.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+            {filteredOwners.map((owner) => (
+              <OwnerCard 
+                key={owner.id} 
+                id={owner.id || ''}
+                name={owner.name} 
+                email={owner.email} 
+                phone={owner.phone} 
+                address={owner.address} 
+                petCount={0} // We'll update this later
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-medium mb-2">No Owners Found</h3>
+            <p className="text-muted-foreground mb-6">
+              {searchQuery ? 'No owners match your search criteria.' : 'You haven\'t added any owners yet.'}
+            </p>
+            <Button onClick={() => navigate('/owners/new')}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Owner
+            </Button>
+          </div>
+        )}
       </div>
     </Layout>
   );

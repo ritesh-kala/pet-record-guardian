@@ -13,10 +13,14 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { ArrowLeft } from 'lucide-react';
+import { createOwner } from '@/lib/firestoreService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const NewOwner: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentUser } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [ownerData, setOwnerData] = useState({
     name: '',
@@ -31,7 +35,7 @@ const NewOwner: React.FC = () => {
     setOwnerData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Basic validation
@@ -44,16 +48,41 @@ const NewOwner: React.FC = () => {
       return;
     }
 
-    // TODO: Save data to backend
-    console.log('Owner form submitted:', ownerData);
+    if (!currentUser) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to add an owner.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     
-    toast({
-      title: "Owner added successfully",
-      description: `${ownerData.name} has been added to your owner list.`,
-    });
-    
-    // Navigate back to owners page
-    navigate('/owners');
+    try {
+      // Save data to Firebase
+      await createOwner({
+        ...ownerData,
+        userId: currentUser.uid
+      });
+      
+      toast({
+        title: "Owner added successfully",
+        description: `${ownerData.name} has been added to your owner list.`,
+      });
+      
+      // Navigate back to owners page
+      navigate('/owners');
+    } catch (error) {
+      console.error('Error adding owner:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add owner. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -144,11 +173,18 @@ const NewOwner: React.FC = () => {
                   type="button" 
                   variant="outline"
                   onClick={() => navigate('/owners')}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Save Owner
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Saving...
+                    </div> : 
+                    "Save Owner"
+                  }
                 </Button>
               </div>
             </form>

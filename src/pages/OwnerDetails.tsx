@@ -1,79 +1,83 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Mail, Phone, MapPin, Edit, PawPrint, Plus } from 'lucide-react';
-
-// Mock data for demonstration
-const getOwnerById = (id: string) => {
-  const owners = [
-    {
-      id: '1',
-      name: 'John Smith',
-      email: 'john.smith@example.com',
-      phone: '(555) 123-4567',
-      address: '123 Main St, Anytown, USA 12345',
-      notes: 'Prefers appointment reminders via text message.',
-      pets: [
-        { id: '1', name: 'Buddy', species: 'Dog', breed: 'Golden Retriever' },
-        { id: '2', name: 'Max', species: 'Dog', breed: 'German Shepherd' }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Emily Johnson',
-      email: 'emily.johnson@example.com',
-      phone: '(555) 987-6543',
-      address: '456 Oak Ave, Somewhere, USA 67890',
-      notes: 'Has multiple pets with different vaccination schedules.',
-      pets: [
-        { id: '3', name: 'Whiskers', species: 'Cat', breed: 'Maine Coon' },
-        { id: '4', name: 'Mittens', species: 'Cat', breed: 'Siamese' },
-        { id: '5', name: 'Fluffy', species: 'Cat', breed: 'Persian' }
-      ]
-    },
-    {
-      id: '3',
-      name: 'Michael Brown',
-      email: 'michael.brown@example.com',
-      phone: '(555) 456-7890',
-      address: '789 Pine Rd, Nowhere, USA 54321',
-      notes: '',
-      pets: [
-        { id: '6', name: 'Rex', species: 'Dog', breed: 'German Shepherd' }
-      ]
-    },
-    {
-      id: '4',
-      name: 'Sarah Williams',
-      email: 'sarah.williams@example.com',
-      phone: '(555) 321-0987',
-      address: '321 Elm St, Anywhere, USA 10293',
-      notes: 'Allergic to certain medications, check medical records before prescribing.',
-      pets: [
-        { id: '7', name: 'Luna', species: 'Cat', breed: 'Siamese' },
-        { id: '8', name: 'Charlie', species: 'Dog', breed: 'Beagle' }
-      ]
-    }
-  ];
-  
-  return owners.find(owner => owner.id === id);
-};
+import { ArrowLeft, Mail, Phone, MapPin, Edit, PawPrint, Plus, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getOwnerById, getPets, Owner, Pet } from '@/lib/firestoreService';
+import { useToast } from '@/components/ui/use-toast';
 
 const OwnerDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const owner = getOwnerById(id || '');
+  const { currentUser } = useAuth();
+  const { toast } = useToast();
   
-  if (!owner) {
+  const [owner, setOwner] = useState<Owner | null>(null);
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOwnerAndPets = async () => {
+      if (!id || !currentUser) return;
+      
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Fetch owner data
+        const ownerData = await getOwnerById(id);
+        
+        // Security check - only allow access to owned data
+        if (ownerData.userId !== currentUser.uid) {
+          setError('You do not have permission to view this owner');
+          setIsLoading(false);
+          return;
+        }
+        
+        setOwner(ownerData);
+        
+        // Fetch pets for this owner
+        const petsData = await getPets(currentUser.uid, id);
+        setPets(petsData);
+      } catch (error) {
+        console.error('Error fetching owner details:', error);
+        setError('Failed to load owner details');
+        toast({
+          title: "Error",
+          description: "Failed to load owner details. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOwnerAndPets();
+  }, [id, currentUser, toast]);
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error || !owner) {
     return (
       <Layout>
         <div className="text-center py-12">
           <h2 className="text-2xl font-medium mb-2">Owner Not Found</h2>
-          <p className="text-muted-foreground mb-6">The owner you're looking for doesn't exist or has been removed.</p>
+          <p className="text-muted-foreground mb-6">
+            {error || "The owner you're looking for doesn't exist or has been removed."}
+          </p>
           <Button onClick={() => navigate('/owners')}>
             Go Back to Owners
           </Button>
@@ -160,9 +164,9 @@ const OwnerDetails: React.FC = () => {
                   </Button>
                 </div>
                 
-                {owner.pets.length > 0 ? (
+                {pets.length > 0 ? (
                   <div className="space-y-3">
-                    {owner.pets.map(pet => (
+                    {pets.map(pet => (
                       <div 
                         key={pet.id}
                         className="flex items-center gap-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors"
