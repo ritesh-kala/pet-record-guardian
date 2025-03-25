@@ -4,6 +4,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+
+// Pages
 import Index from "./pages/Index";
 import Owners from "./pages/Owners";
 import OwnerDetails from "./pages/OwnerDetails";
@@ -15,30 +19,85 @@ import MedicalRecords from "./pages/MedicalRecords";
 import MedicalRecordDetails from "./pages/MedicalRecordDetails";
 import NewMedicalRecord from "./pages/NewMedicalRecord";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/owners" element={<Owners />} />
-          <Route path="/owners/:id" element={<OwnerDetails />} />
-          <Route path="/owners/new" element={<NewOwner />} />
-          <Route path="/pets" element={<Pets />} />
-          <Route path="/pets/:id" element={<PetDetails />} />
-          <Route path="/pets/new" element={<NewPet />} />
-          <Route path="/records" element={<MedicalRecords />} />
-          <Route path="/records/:id" element={<MedicalRecordDetails />} />
-          <Route path="/records/new" element={<NewMedicalRecord />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* Protected Routes */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
+            } />
+            <Route path="/owners" element={
+              <ProtectedRoute>
+                <Owners />
+              </ProtectedRoute>
+            } />
+            <Route path="/owners/:id" element={
+              <ProtectedRoute>
+                <OwnerDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/owners/new" element={
+              <ProtectedRoute>
+                <NewOwner />
+              </ProtectedRoute>
+            } />
+            <Route path="/pets" element={
+              <ProtectedRoute>
+                <Pets />
+              </ProtectedRoute>
+            } />
+            <Route path="/pets/:id" element={
+              <ProtectedRoute>
+                <PetDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/pets/new" element={
+              <ProtectedRoute>
+                <NewPet />
+              </ProtectedRoute>
+            } />
+            <Route path="/records" element={
+              <ProtectedRoute>
+                <MedicalRecords />
+              </ProtectedRoute>
+            } />
+            <Route path="/records/:id" element={
+              <ProtectedRoute>
+                <MedicalRecordDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/records/new" element={
+              <ProtectedRoute>
+                <NewMedicalRecord />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
