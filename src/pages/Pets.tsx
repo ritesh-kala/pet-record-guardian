@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
@@ -15,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 
-// Mock data
 const pets = [
   {
     id: '1',
@@ -170,7 +168,7 @@ const Pets: React.FC = () => {
                   <SelectValue placeholder="All Species" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Species</SelectItem>
+                  <SelectItem value="all_species">All Species</SelectItem>
                   <SelectItem value="Dog">Dog</SelectItem>
                   <SelectItem value="Cat">Cat</SelectItem>
                   <SelectItem value="Bird">Bird</SelectItem>
@@ -189,7 +187,7 @@ const Pets: React.FC = () => {
                   <SelectValue placeholder="All Genders" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Genders</SelectItem>
+                  <SelectItem value="all_genders">All Genders</SelectItem>
                   <SelectItem value="Male">Male</SelectItem>
                   <SelectItem value="Female">Female</SelectItem>
                 </SelectContent>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -259,7 +258,7 @@ const MedicalRecords: React.FC = () => {
                     <SelectValue placeholder="All Pets" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Pets</SelectItem>
+                    <SelectItem value="all_pets">All Pets</SelectItem>
                     {uniquePets.map(pet => (
                       <SelectItem key={pet.id} value={pet.id}>
                         {pet.name} ({pet.species})
@@ -279,7 +278,7 @@ const MedicalRecords: React.FC = () => {
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Statuses</SelectItem>
+                    <SelectItem value="all_statuses">All Statuses</SelectItem>
                     <SelectItem value="upcoming">Upcoming</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
@@ -373,7 +372,6 @@ const MedicalRecords: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="completed" className="mt-0">
-            {/* Similar content as "all" tab but with completed records */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredRecords.map((record) => (
                 <div key={record.id} className="animate-slideIn">
@@ -396,7 +394,6 @@ const MedicalRecords: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="overdue" className="mt-0">
-            {/* Similar content as "all" tab but with overdue records */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredRecords.map((record) => (
                 <div key={record.id} className="animate-slideIn">
