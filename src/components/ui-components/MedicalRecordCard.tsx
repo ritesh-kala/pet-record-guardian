@@ -41,7 +41,7 @@ const MedicalRecordCard: React.FC<MedicalRecordCardProps> = ({
           <Badge variant={
             status === 'upcoming' ? "default" : 
             status === 'overdue' ? "destructive" : 
-            "success"
+            "secondary"
           } className="text-xs">
             {status === 'upcoming' ? "Upcoming" : 
              status === 'overdue' ? "Overdue" : 
