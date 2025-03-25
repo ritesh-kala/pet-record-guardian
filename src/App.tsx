@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Owners from "./pages/Owners";
 import Pets from "./pages/Pets";
+import NewPet from "./pages/NewPet";
 import MedicalRecords from "./pages/MedicalRecords";
 import NotFound from "./pages/NotFound";
 
@@ -25,7 +26,7 @@ const App = () => (
           <Route path="/owners/new" element={<NotFound />} />
           <Route path="/pets" element={<Pets />} />
           <Route path="/pets/:id" element={<NotFound />} />
-          <Route path="/pets/new" element={<NotFound />} />
+          <Route path="/pets/new" element={<NewPet />} />
           <Route path="/records" element={<MedicalRecords />} />
           <Route path="/records/:id" element={<NotFound />} />
           <Route path="/records/new" element={<NotFound />} />
