@@ -35,7 +35,7 @@ const OwnerDetails: React.FC = () => {
         setIsUserOwner(isCurrentUserOwner);
         
         // Fetch pets for this owner
-        const petsData = await getPets(currentUser.id, id);
+        const petsData = await getPets(id);
         setPets(petsData);
       } catch (error) {
         console.error('Error fetching owner details:', error);
