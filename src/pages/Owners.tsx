@@ -23,11 +23,9 @@ const Owners: React.FC = () => {
 
   useEffect(() => {
     const fetchOwners = async () => {
-      if (!currentUser) return;
-      
       try {
         setIsLoading(true);
-        const ownersData = await getOwners(currentUser.id);
+        const ownersData = await getOwners();
         setOwners(ownersData);
         setFilteredOwners(ownersData);
       } catch (error) {
@@ -43,7 +41,7 @@ const Owners: React.FC = () => {
     };
 
     fetchOwners();
-  }, [currentUser, toast]);
+  }, [toast]);
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -52,7 +50,7 @@ const Owners: React.FC = () => {
       const filtered = owners.filter(owner => 
         owner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         owner.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        owner.phone.includes(searchQuery)
+        (owner.phone && owner.phone.includes(searchQuery))
       );
       setFilteredOwners(filtered);
     }
@@ -113,8 +111,8 @@ const Owners: React.FC = () => {
                 id={owner.id || ''}
                 name={owner.name} 
                 email={owner.email} 
-                phone={owner.phone} 
-                address={owner.address} 
+                phone={owner.phone || ''} 
+                address={owner.address || ''} 
                 petCount={0} // We'll update this later
               />
             ))}
