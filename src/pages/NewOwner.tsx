@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -13,7 +12,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { ArrowLeft } from 'lucide-react';
-import { createOwner } from '@/lib/firestoreService';
+import { createOwner } from '@/lib/supabaseService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const NewOwner: React.FC = () => {
@@ -60,10 +59,10 @@ const NewOwner: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Save data to Firebase
+      // Save data to Supabase
       await createOwner({
         ...ownerData,
-        userId: currentUser.uid
+        userId: currentUser.id
       });
       
       toast({

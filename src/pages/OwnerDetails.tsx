@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Mail, Phone, MapPin, Edit, PawPrint, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getOwnerById, getPets, Owner, Pet } from '@/lib/firestoreService';
+import { getOwnerById, getPets, Owner, Pet } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
 
 const OwnerDetails: React.FC = () => {
@@ -33,7 +32,7 @@ const OwnerDetails: React.FC = () => {
         const ownerData = await getOwnerById(id);
         
         // Security check - only allow access to owned data
-        if (ownerData.userId !== currentUser.uid) {
+        if (ownerData.userId !== currentUser.id) {
           setError('You do not have permission to view this owner');
           setIsLoading(false);
           return;
@@ -42,7 +41,7 @@ const OwnerDetails: React.FC = () => {
         setOwner(ownerData);
         
         // Fetch pets for this owner
-        const petsData = await getPets(currentUser.uid, id);
+        const petsData = await getPets(currentUser.id, id);
         setPets(petsData);
       } catch (error) {
         console.error('Error fetching owner details:', error);
@@ -99,7 +98,7 @@ const OwnerDetails: React.FC = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <SectionHeader 
-            title={owner.name} 
+            title={owner?.name || ''} 
             description="Owner Profile"
             buttonText="Edit Owner"
             buttonIcon={<Edit className="h-4 w-4" />}
@@ -107,91 +106,107 @@ const OwnerDetails: React.FC = () => {
           />
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-medium mb-4">Contact Information</h3>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p>{owner.email}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Phone</p>
-                      <p>{owner.phone}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Address</p>
-                      <p>{owner.address}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {owner.notes && (
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <h4 className="text-sm font-medium mb-2">Notes</h4>
-                    <p className="text-muted-foreground">{owner.notes}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-          
-          <div className="md:col-span-1">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Pets</h3>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="gap-1"
-                    onClick={() => navigate(`/pets/new?ownerId=${owner.id}`)}
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add
-                  </Button>
-                </div>
-                
-                {pets.length > 0 ? (
-                  <div className="space-y-3">
-                    {pets.map(pet => (
-                      <div 
-                        key={pet.id}
-                        className="flex items-center gap-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors"
-                        onClick={() => navigate(`/pets/${pet.id}`)}
-                      >
-                        <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <PawPrint className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{pet.name}</p>
-                          <p className="text-sm text-muted-foreground">{pet.species} · {pet.breed}</p>
-                        </div>
+        ) : error || !owner ? (
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-medium mb-2">Owner Not Found</h2>
+            <p className="text-muted-foreground mb-6">
+              {error || "The owner you're looking for doesn't exist or has been removed."}
+            </p>
+            <Button onClick={() => navigate('/owners')}>
+              Go Back to Owners
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-6">
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-medium mb-4">Contact Information</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p>{owner.email}</p>
                       </div>
-                    ))}
+                    </div>
+                    
+                    <div className="flex items-start gap-3">
+                      <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Phone</p>
+                        <p>{owner.phone}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Address</p>
+                        <p>{owner.address}</p>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <PawPrint className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                    <p>No pets added yet</p>
+                  
+                  {owner.notes && (
+                    <div className="mt-6 pt-6 border-t border-border">
+                      <h4 className="text-sm font-medium mb-2">Notes</h4>
+                      <p className="text-muted-foreground">{owner.notes}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="md:col-span-1">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium">Pets</h3>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="gap-1"
+                      onClick={() => navigate(`/pets/new?ownerId=${owner.id}`)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  
+                  {pets.length > 0 ? (
+                    <div className="space-y-3">
+                      {pets.map(pet => (
+                        <div 
+                          key={pet.id}
+                          className="flex items-center gap-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors"
+                          onClick={() => navigate(`/pets/${pet.id}`)}
+                        >
+                          <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                            <PawPrint className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{pet.name}</p>
+                            <p className="text-sm text-muted-foreground">{pet.species} · {pet.breed}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <PawPrint className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                      <p>No pets added yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </Layout>
   );

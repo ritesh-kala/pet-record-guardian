@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -29,7 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { createPet, getOwners, Owner, Timestamp } from '@/lib/firestoreService';
+import { createPet, getOwners, Owner, Timestamp } from '@/lib/supabaseService';
 
 const NewPet: React.FC = () => {
   const navigate = useNavigate();
@@ -64,7 +63,7 @@ const NewPet: React.FC = () => {
       
       try {
         setLoadingOwners(true);
-        const ownersData = await getOwners(currentUser.uid);
+        const ownersData = await getOwners(currentUser.id);
         setOwners(ownersData);
       } catch (error) {
         console.error('Error fetching owners:', error);
@@ -124,11 +123,11 @@ const NewPet: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Save data to Firebase
+      // Save data to Supabase
       await createPet({
         ...petData,
         dateOfBirth: date ? Timestamp.fromDate(date) : undefined,
-        userId: currentUser.uid
+        userId: currentUser.id
       });
       
       toast({

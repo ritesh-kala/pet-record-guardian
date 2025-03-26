@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -48,10 +47,10 @@ const Navbar = () => {
     }
   };
 
-  // Get user initials for avatar
   const getUserInitials = () => {
-    if (currentUser?.displayName) {
-      return currentUser.displayName
+    const fullName = currentUser?.user_metadata?.full_name;
+    if (fullName) {
+      return fullName
         .split(' ')
         .map(name => name[0])
         .join('')
@@ -70,7 +69,6 @@ const Navbar = () => {
             <span className="font-serif text-xl font-medium">PetCare</span>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             {navItems.map((item) => (
               <Link
@@ -116,7 +114,7 @@ const Navbar = () => {
                 <DropdownMenuContent className="w-56 mr-2">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{currentUser.displayName || 'User'}</p>
+                      <p className="text-sm font-medium leading-none">{currentUser.user_metadata?.full_name || 'User'}</p>
                       <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
                     </div>
                   </DropdownMenuLabel>
@@ -137,7 +135,6 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
           <button 
             className="md:hidden p-2 rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
             onClick={() => setIsOpen(!isOpen)}
@@ -148,7 +145,6 @@ const Navbar = () => {
         </div>
       </header>
 
-      {/* Mobile Navigation */}
       {isOpen && (
         <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur-sm md:hidden pt-16 animate-fadeIn">
           <nav className="container mx-auto px-4 py-6 flex flex-col space-y-1">
@@ -209,7 +205,6 @@ const Navbar = () => {
         </div>
       )}
       
-      {/* Content padding to account for fixed header */}
       <div className="pt-16"></div>
     </>
   );

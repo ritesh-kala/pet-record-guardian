@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -29,7 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPets, createMedicalRecord, getPetById, Pet, Timestamp } from '@/lib/firestoreService';
+import { getPets, createMedicalRecord, getPetById, Pet, Timestamp } from '@/lib/supabaseService';
 
 const NewMedicalRecord: React.FC = () => {
   const navigate = useNavigate();
@@ -69,7 +68,7 @@ const NewMedicalRecord: React.FC = () => {
         } else {
           setLoadingPets(true);
           // Fetch all pets for dropdown
-          const petsData = await getPets(currentUser.uid);
+          const petsData = await getPets(currentUser.id);
           setPets(petsData);
         }
       } catch (error) {
@@ -131,11 +130,11 @@ const NewMedicalRecord: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Save data to Firebase
+      // Save data to Supabase
       await createMedicalRecord({
         ...recordData,
         date: Timestamp.fromDate(date),
-        userId: currentUser.uid
+        userId: currentUser.id
       });
       
       toast({
