@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -86,7 +85,15 @@ const Register: React.FC = () => {
     
     try {
       await signUp(formData.email, formData.password, formData.name);
-      navigate('/');
+      
+      // Since Supabase may require email confirmation, show a message
+      toast({
+        title: "Registration successful",
+        description: "Please check your email to confirm your account.",
+      });
+      
+      // Navigate to login page instead of home page
+      navigate('/login');
     } catch (error: any) {
       console.error('Registration error:', error);
     } finally {

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getOwners, Owner } from '@/lib/firestoreService';
+import { getOwners, Owner } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
 
 const Owners: React.FC = () => {
@@ -27,7 +27,7 @@ const Owners: React.FC = () => {
       
       try {
         setIsLoading(true);
-        const ownersData = await getOwners(currentUser.uid);
+        const ownersData = await getOwners(currentUser.id);
         setOwners(ownersData);
         setFilteredOwners(ownersData);
       } catch (error) {

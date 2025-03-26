@@ -11,11 +11,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { User, Key, Mail, LogOut } from 'lucide-react';
 
 const Profile: React.FC = () => {
-  const { currentUser, updateUserProfile, logout } = useAuth();
+  const { currentUser, updateUserProfile, logout, resetPassword } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [displayName, setDisplayName] = useState(currentUser?.displayName || '');
+  
+  // Get user name from metadata
+  const userName = currentUser?.user_metadata?.full_name || '';
+  const [displayName, setDisplayName] = useState(userName);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +35,7 @@ const Profile: React.FC = () => {
     setIsUpdating(true);
     
     try {
-      await updateUserProfile({ displayName });
+      await updateUserProfile({ full_name: displayName });
       setIsEditing(false);
       toast({
         title: "Success",
@@ -50,6 +53,20 @@ const Profile: React.FC = () => {
       await logout();
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (currentUser?.email) {
+      try {
+        await resetPassword(currentUser.email);
+        toast({
+          title: "Password reset email sent",
+          description: "Check your email for instructions to reset your password."
+        });
+      } catch (error) {
+        console.error('Password reset error:', error);
+      }
     }
   };
 
@@ -83,7 +100,7 @@ const Profile: React.FC = () => {
                           variant="outline"
                           onClick={() => {
                             setIsEditing(false);
-                            setDisplayName(currentUser?.displayName || '');
+                            setDisplayName(userName);
                           }}
                         >
                           Cancel
@@ -102,7 +119,7 @@ const Profile: React.FC = () => {
                             <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                             <div>
                               <p className="text-sm text-muted-foreground">Name</p>
-                              <p className="font-medium">{currentUser?.displayName || 'Not set'}</p>
+                              <p className="font-medium">{userName || 'Not set'}</p>
                             </div>
                           </div>
                           
@@ -143,20 +160,7 @@ const Profile: React.FC = () => {
                 <Button 
                   variant="outline" 
                   className="mt-4"
-                  onClick={() => {
-                    if (currentUser?.email) {
-                      try {
-                        const auth = useAuth();
-                        auth.resetPassword(currentUser.email);
-                        toast({
-                          title: "Password reset email sent",
-                          description: "Check your email for instructions to reset your password."
-                        });
-                      } catch (error) {
-                        console.error('Password reset error:', error);
-                      }
-                    }
-                  }}
+                  onClick={handleResetPassword}
                 >
                   Reset Password
                 </Button>
