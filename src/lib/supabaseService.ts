@@ -1,6 +1,5 @@
 
 import { supabase } from './supabase';
-import { PostgrestError } from '@supabase/supabase-js';
 
 // Types
 export interface Owner {
@@ -24,7 +23,7 @@ export interface Pet {
   age?: string;
   weight?: string;
   gender?: string;
-  dateOfBirth?: Timestamp;
+  dateOfBirth?: Timestamp | string;
   microchipId?: string;
   insuranceProvider?: string;
   policyNumber?: string;
@@ -38,7 +37,7 @@ export interface MedicalRecord {
   petId: string;
   type: string;
   description: string;
-  date: Timestamp;
+  date: Timestamp | string;
   diagnosis?: string;
   treatment?: string;
   medications?: string;
@@ -69,6 +68,19 @@ export class Timestamp {
   static fromDate(date: Date): Timestamp {
     return new Timestamp(Math.floor(date.getTime() / 1000), 0);
   }
+}
+
+// Converting Timestamp to string for Supabase and vice versa
+function timestampToISOString(timestamp: Timestamp | string): string {
+  if (typeof timestamp === 'string') {
+    return timestamp;
+  }
+  return timestamp.toDate().toISOString();
+}
+
+function isoStringToTimestamp(isoString: string): Timestamp {
+  const date = new Date(isoString);
+  return Timestamp.fromDate(date);
 }
 
 // Owners
@@ -119,7 +131,19 @@ export async function getPets(userId: string, ownerId?: string): Promise<Pet[]> 
 
   const { data, error } = await query;
   if (error) throw error;
-  return data || [];
+  
+  // Convert ISO string dates to Timestamp objects
+  const petsWithTimestamps = data?.map(pet => {
+    if (pet.dateOfBirth) {
+      return {
+        ...pet,
+        dateOfBirth: isoStringToTimestamp(pet.dateOfBirth as string)
+      };
+    }
+    return pet;
+  }) || [];
+  
+  return petsWithTimestamps;
 }
 
 export async function getPetById(id: string): Promise<Pet> {
@@ -131,6 +155,12 @@ export async function getPetById(id: string): Promise<Pet> {
 
   if (error) throw error;
   if (!data) throw new Error('Pet not found');
+  
+  // Convert ISO string dates to Timestamp objects
+  if (data.dateOfBirth) {
+    data.dateOfBirth = isoStringToTimestamp(data.dateOfBirth as string);
+  }
+  
   return data;
 }
 
@@ -140,7 +170,7 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
   if (petData.dateOfBirth) {
     petData = {
       ...petData,
-      dateOfBirth: (petData.dateOfBirth as Timestamp).toDate().toISOString()
+      dateOfBirth: timestampToISOString(petData.dateOfBirth)
     };
   }
 
@@ -168,7 +198,16 @@ export async function getMedicalRecords(userId: string, petId?: string): Promise
 
   const { data, error } = await query;
   if (error) throw error;
-  return data || [];
+  
+  // Convert ISO string dates to Timestamp objects
+  const recordsWithTimestamps = data?.map(record => {
+    return {
+      ...record,
+      date: isoStringToTimestamp(record.date as string)
+    };
+  }) || [];
+  
+  return recordsWithTimestamps;
 }
 
 export async function getMedicalRecordById(id: string): Promise<MedicalRecord> {
@@ -180,6 +219,10 @@ export async function getMedicalRecordById(id: string): Promise<MedicalRecord> {
 
   if (error) throw error;
   if (!data) throw new Error('Medical record not found');
+  
+  // Convert ISO string dates to Timestamp objects
+  data.date = isoStringToTimestamp(data.date as string);
+  
   return data;
 }
 
@@ -187,7 +230,7 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
   // Convert Timestamp to ISO string
   const recordData = {
     ...record,
-    date: (record.date as Timestamp).toDate().toISOString(),
+    date: timestampToISOString(record.date),
     createdAt: new Date().toISOString()
   };
 
