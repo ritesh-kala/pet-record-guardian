@@ -1,5 +1,4 @@
-
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 // Types
 export interface Owner {
@@ -90,7 +89,10 @@ export async function getOwners(userId: string): Promise<Owner[]> {
     .select('*')
     .eq('userId', userId);
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching owners:", error);
+    throw error;
+  }
   return data || [];
 }
 

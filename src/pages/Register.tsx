@@ -84,18 +84,20 @@ const Register: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      console.log("Submitting registration...");
       await signUp(formData.email, formData.password, formData.name);
       
-      // Since Supabase may require email confirmation, show a message
+      // Show success message
       toast({
         title: "Registration successful",
         description: "Please check your email to confirm your account.",
       });
       
-      // Navigate to login page instead of home page
+      // Navigate to login page
       navigate('/login');
     } catch (error: any) {
       console.error('Registration error:', error);
+      // Error toast is already displayed in the Auth context
     } finally {
       setIsSubmitting(false);
     }
