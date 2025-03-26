@@ -202,8 +202,8 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
     name: pet.name,
     species: pet.species,
     breed: pet.breed,
-    age: pet.age,
-    weight: pet.weight,
+    age: pet.age ? Number(pet.age) : null,
+    weight: pet.weight ? Number(pet.weight) : null,
     gender: pet.gender,
     date_of_birth: pet.date_of_birth ? timestampToISOString(pet.date_of_birth) : null,
     microchip_id: pet.microchip_id,
@@ -214,13 +214,19 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
     created_at: new Date().toISOString()
   };
 
+  console.log("Creating pet with data:", petData);
+
   const { data, error } = await supabase
     .from('pets')
     .insert([petData])
     .select('id')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error creating pet:", error);
+    throw error;
+  }
+  
   if (!data) throw new Error('Failed to create pet');
   return { id: data.id };
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { useToast } from '@/components/ui/use-toast';
@@ -7,18 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ArrowLeft, CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, ArrowLeft } from 'lucide-react';
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -27,101 +16,79 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
-import { getPets, createMedicalRecord, getPetById, Pet, Timestamp } from '@/lib/supabaseService';
+import { createMedicalRecord, getPetById } from '@/lib/supabaseService';
+import { Pet } from '@/lib/supabaseService';
 
 const NewMedicalRecord: React.FC = () => {
   const navigate = useNavigate();
+  const { petId } = useParams<{ petId: string }>();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
-  const petId = searchParams.get('petId');
-  const { currentUser } = useAuth();
-  
-  const [date, setDate] = useState<Date>(new Date());
-  const [pets, setPets] = useState<Pet[]>([]);
-  const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingPets, setLoadingPets] = useState(petId ? false : true);
+
+  const [date, setDate] = useState<Date>();
+  const [nextAppointmentDate, setNextAppointmentDate] = useState<Date>();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [recordData, setRecordData] = useState({
-    type: '',
-    description: '',
+  const [pet, setPet] = useState<Pet | null>(null);
+
+  const [medicalData, setMedicalData] = useState({
+    reasonForVisit: '',
     diagnosis: '',
     treatment: '',
-    medications: '',
-    notes: '',
-    status: 'Completed',
-    petId: petId || ''
+    prescriptions: [] as string[],
+    nextAppointment: '',
+    veterinarian: '',
+    additionalNotes: '',
+    vaccinationsGiven: [] as string[]
   });
 
   useEffect(() => {
-    const fetchPetsAndSelectedPet = async () => {
-      if (!currentUser) return;
-      
+    const fetchPet = async () => {
+      if (!petId) return;
       try {
-        if (petId) {
-          setIsLoading(true);
-          // Fetch the selected pet
-          const petData = await getPetById(petId);
-          setSelectedPet(petData);
-        } else {
-          setLoadingPets(true);
-          // Fetch all pets for dropdown
-          const petsData = await getPets(currentUser.id);
-          setPets(petsData);
-        }
+        const petData = await getPetById(petId);
+        setPet(petData);
       } catch (error) {
-        console.error('Error fetching pets:', error);
+        console.error('Error fetching pet:', error);
         toast({
           title: "Error",
-          description: "Failed to load pets. Please try again.",
+          description: "Failed to load pet details. Please try again.",
           variant: "destructive"
         });
-      } finally {
-        setIsLoading(false);
-        setLoadingPets(false);
+        navigate('/pets');
       }
     };
 
-    fetchPetsAndSelectedPet();
-  }, [currentUser, petId, toast]);
+    fetchPet();
+  }, [petId, toast, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setRecordData(prev => ({ ...prev, [name]: value }));
+    setMedicalData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setRecordData(prev => ({ ...prev, [name]: value }));
+  const handleArrayInputChange = (name: string, value: string) => {
+    setMedicalData(prev => {
+      // Split the input value by commas to create an array
+      const newValueArray = value.split(',').map(item => item.trim());
+      return { ...prev, [name]: newValueArray };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
-    if (!recordData.type || !recordData.description || !date) {
+    if (!petId) {
       toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields.",
+        title: "Pet ID Required",
+        description: "Pet ID is missing. Please try again.",
         variant: "destructive"
       });
       return;
     }
 
-    if (!recordData.petId) {
+    if (!date) {
       toast({
-        title: "Pet Required",
-        description: "Please select a pet for this medical record.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!currentUser) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to add a medical record.",
+        title: "Visit Date Required",
+        description: "Please select a visit date.",
         variant: "destructive"
       });
       return;
@@ -132,24 +99,26 @@ const NewMedicalRecord: React.FC = () => {
     try {
       // Save data to Supabase
       await createMedicalRecord({
-        ...recordData,
-        date: Timestamp.fromDate(date),
-        userId: currentUser.id
+        pet_id: petId || '',
+        visit_date: date ? format(date, 'yyyy-MM-dd') : '',
+        reason_for_visit: medicalData.reasonForVisit || null,
+        diagnosis: medicalData.diagnosis || null,
+        treatment: medicalData.treatment || null,
+        prescriptions: medicalData.prescriptions.length > 0 ? medicalData.prescriptions : null,
+        next_appointment: nextAppointmentDate ? format(nextAppointmentDate, 'yyyy-MM-dd') : null,
+        veterinarian: medicalData.veterinarian || null,
+        notes: medicalData.additionalNotes || null,
+        vaccinations_given: medicalData.vaccinationsGiven.length > 0 ? medicalData.vaccinationsGiven : null
       });
       
       toast({
-        title: "Medical record added successfully",
-        description: `The ${recordData.type} record has been added.`,
+        title: "Medical record added",
+        description: "The medical record has been added successfully.",
       });
       
-      // Navigate back
-      if (petId) {
-        navigate(`/pets/${petId}`);
-      } else {
-        navigate('/records');
-      }
+      navigate(`/pets/${petId}`);
     } catch (error) {
-      console.error('Medical record submit error:', error);
+      console.error('Error adding medical record:', error);
       toast({
         title: "Error",
         description: "Failed to add medical record. Please try again.",
@@ -173,198 +142,164 @@ const NewMedicalRecord: React.FC = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <SectionHeader 
-            title="Add Medical Record" 
-            description={selectedPet ? `For ${selectedPet.name} (${selectedPet.breed})` : "Enter medical record details"} 
+            title="Add New Medical Record" 
+            description={`Enter medical information for ${pet?.name || 'this pet'}`}
           />
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            {isLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {!petId && (
-                  <div className="space-y-2">
-                    <Label htmlFor="petId">Pet <span className="text-destructive">*</span></Label>
-                    {loadingPets ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Loading pets...</span>
-                      </div>
-                    ) : (
-                      <Select 
-                        value={recordData.petId} 
-                        onValueChange={(value) => {
-                          handleSelectChange('petId', value);
-                        }}
-                      >
-                        <SelectTrigger id="petId">
-                          <SelectValue placeholder="Select a pet" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {pets.map(pet => (
-                            <SelectItem key={pet.id} value={pet.id || ''}>
-                              {pet.name} ({pet.breed})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label>Visit Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
                     )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Record Type <span className="text-destructive">*</span></Label>
-                    <Select 
-                      value={recordData.type} 
-                      onValueChange={(value) => handleSelectChange('type', value)}
-                    >
-                      <SelectTrigger id="type">
-                        <SelectValue placeholder="Select record type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Vaccination">Vaccination</SelectItem>
-                        <SelectItem value="Check-up">Check-up</SelectItem>
-                        <SelectItem value="Surgery">Surgery</SelectItem>
-                        <SelectItem value="Dental">Dental</SelectItem>
-                        <SelectItem value="Emergency">Emergency</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Date <span className="text-destructive">*</span></Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !date && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {date ? format(date, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={date}
-                          onSelect={(date) => date && setDate(date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description <span className="text-destructive">*</span></Label>
-                    <Input 
-                      id="description" 
-                      name="description" 
-                      placeholder="Brief description of the record" 
-                      value={recordData.description}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select 
-                      value={recordData.status} 
-                      onValueChange={(value) => handleSelectChange('status', value)}
-                    >
-                      <SelectTrigger id="status">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Scheduled">Scheduled</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                        <SelectItem value="Cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="diagnosis">Diagnosis</Label>
-                  <Textarea 
-                    id="diagnosis" 
-                    name="diagnosis" 
-                    placeholder="Enter diagnosis details" 
-                    value={recordData.diagnosis}
-                    onChange={handleInputChange}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="treatment">Treatment</Label>
-                  <Textarea 
-                    id="treatment" 
-                    name="treatment" 
-                    placeholder="Enter treatment details" 
-                    value={recordData.treatment}
-                    onChange={handleInputChange}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="medications">Medications</Label>
-                  <Textarea 
-                    id="medications" 
-                    name="medications" 
-                    placeholder="Enter prescribed medications" 
-                    value={recordData.medications}
-                    onChange={handleInputChange}
-                    rows={2}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Additional Notes</Label>
-                  <Textarea 
-                    id="notes" 
-                    name="notes" 
-                    placeholder="Any additional notes or observations" 
-                    value={recordData.notes}
-                    onChange={handleInputChange}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => navigate(-1)}
-                    disabled={isSubmitting}
                   >
-                    Cancel
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, "PPP") : <span>Pick a date</span>}
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Saving...
-                      </div> : 
-                      "Save Record"
-                    }
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="veterinarian">Veterinarian</Label>
+              <Input 
+                id="veterinarian" 
+                name="veterinarian" 
+                placeholder="Enter veterinarian's name" 
+                value={medicalData.veterinarian}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reasonForVisit">Reason for Visit</Label>
+              <Input 
+                id="reasonForVisit" 
+                name="reasonForVisit" 
+                placeholder="Enter reason for visit" 
+                value={medicalData.reasonForVisit}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="diagnosis">Diagnosis</Label>
+              <Input 
+                id="diagnosis" 
+                name="diagnosis" 
+                placeholder="Enter diagnosis" 
+                value={medicalData.diagnosis}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="treatment">Treatment</Label>
+              <Input 
+                id="treatment" 
+                name="treatment" 
+                placeholder="Enter treatment" 
+                value={medicalData.treatment}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="prescriptions">Prescriptions (comma-separated)</Label>
+              <Input
+                id="prescriptions"
+                name="prescriptions"
+                placeholder="Enter prescriptions"
+                value={medicalData.prescriptions.join(', ')}
+                onChange={(e) => handleArrayInputChange('prescriptions', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Next Appointment Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !nextAppointmentDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {nextAppointmentDate ? format(nextAppointmentDate, "PPP") : <span>Pick a date</span>}
                   </Button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={nextAppointmentDate}
+                    onSelect={setNextAppointmentDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vaccinationsGiven">Vaccinations Given (comma-separated)</Label>
+              <Input
+                id="vaccinationsGiven"
+                name="vaccinationsGiven"
+                placeholder="Enter vaccinations given"
+                value={medicalData.vaccinationsGiven.join(', ')}
+                onChange={(e) => handleArrayInputChange('vaccinationsGiven', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="additionalNotes">Additional Notes</Label>
+            <Textarea 
+              id="additionalNotes" 
+              name="additionalNotes" 
+              placeholder="Additional information about the visit" 
+              value={medicalData.additionalNotes}
+              onChange={handleInputChange}
+              rows={4}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={() => navigate(-1)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Saving...
+                </div> : 
+                "Save Record"
+              }
+            </Button>
+          </div>
+        </form>
       </div>
     </Layout>
   );

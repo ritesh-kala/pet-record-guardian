@@ -19,26 +19,20 @@ const OwnerDetails: React.FC = () => {
   const [pets, setPets] = useState<Pet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUserOwner, setIsUserOwner] = useState(false);
 
   useEffect(() => {
-    const fetchOwnerAndPets = async () => {
-      if (!id || !currentUser) return;
+    const fetchOwnerDetails = async () => {
+      if (!id) return;
       
       try {
         setIsLoading(true);
-        setError(null);
-        
-        // Fetch owner data
         const ownerData = await getOwnerById(id);
-        
-        // Security check - only allow access to owned data
-        if (ownerData.userId !== currentUser.id) {
-          setError('You do not have permission to view this owner');
-          setIsLoading(false);
-          return;
-        }
-        
         setOwner(ownerData);
+        
+        // Check if this owner belongs to the current user
+        const isCurrentUserOwner = currentUser && ownerData.user_id === currentUser.id;
+        setIsUserOwner(isCurrentUserOwner);
         
         // Fetch pets for this owner
         const petsData = await getPets(currentUser.id, id);
@@ -56,7 +50,7 @@ const OwnerDetails: React.FC = () => {
       }
     };
 
-    fetchOwnerAndPets();
+    fetchOwnerDetails();
   }, [id, currentUser, toast]);
 
   if (isLoading) {

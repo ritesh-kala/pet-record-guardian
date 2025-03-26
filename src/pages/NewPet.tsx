@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -63,7 +64,7 @@ const NewPet: React.FC = () => {
       
       try {
         setLoadingOwners(true);
-        const ownersData = await getOwners(currentUser.id);
+        const ownersData = await getOwners();
         setOwners(ownersData);
       } catch (error) {
         console.error('Error fetching owners:', error);
@@ -125,9 +126,18 @@ const NewPet: React.FC = () => {
     try {
       // Save data to Supabase
       await createPet({
-        ...petData,
-        dateOfBirth: date ? Timestamp.fromDate(date) : undefined,
-        userId: currentUser.id
+        name: petData.name,
+        species: petData.species,
+        breed: petData.breed,
+        age: petData.age ? Number(petData.age) : null,
+        weight: petData.weight ? Number(petData.weight) : null,
+        gender: petData.gender || null,
+        date_of_birth: date ? Timestamp.fromDate(date) : null,
+        microchip_id: petData.microchipId || null,
+        insurance_provider: petData.insuranceProvider || null,
+        policy_number: petData.policyNumber || null,
+        notes: petData.notes || null,
+        owner_id: petData.ownerId
       });
       
       toast({
