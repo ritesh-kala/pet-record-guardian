@@ -1,69 +1,164 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, Info, Calendar, User, Stethoscope, Plus } from 'lucide-react';
-
-// Mock data for demonstration
-const getPetById = (id: string) => {
-  const pets = [
-    {
-      id: '1',
-      name: 'Buddy',
-      species: 'Dog',
-      breed: 'Golden Retriever',
-      age: 3,
-      gender: 'Male',
-      weight: '34.5',
-      microchipId: '985121056478526',
-      dateOfBirth: '2020-03-15',
-      ownerId: '1',
-      ownerName: 'John Smith',
-      imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=1924',
-      upcomingAppointment: {
-        date: 'May 20, 2023',
-        reason: 'Annual Checkup'
-      },
-      medicalRecords: [
-        { id: '1', date: '2022-02-10', type: 'Vaccination', description: 'Rabies Vaccination', status: 'Completed' },
-        { id: '2', date: '2022-06-15', type: 'Check-up', description: 'Annual wellness examination', status: 'Completed' }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Whiskers',
-      species: 'Cat',
-      breed: 'Maine Coon',
-      age: 2,
-      gender: 'Female',
-      weight: '12.3',
-      microchipId: '985136547895423',
-      dateOfBirth: '2021-05-20',
-      ownerId: '2',
-      ownerName: 'Emily Johnson',
-      imageUrl: 'https://images.unsplash.com/photo-1570824104453-508955ab713e?q=80&w=2011',
-      upcomingAppointment: {
-        date: 'June 5, 2023',
-        reason: 'Vaccination'
-      },
-      medicalRecords: [
-        { id: '3', date: '2022-08-20', type: 'Dental', description: 'Dental cleaning', status: 'Completed' }
-      ]
-    }
-  ];
-  
-  return pets.find(pet => pet.id === id);
-};
+import { 
+  ArrowLeft, 
+  Edit, 
+  Info, 
+  Calendar, 
+  User, 
+  Stethoscope, 
+  Plus, 
+  Loader2,
+  Upload,
+  Image as ImageIcon
+} from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { getPetById, getMedicalRecords, MedicalRecord, Pet } from '@/lib/supabaseService';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const PetDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const pet = getPetById(id || '');
+  const { toast } = useToast();
   
+  const [pet, setPet] = useState<Pet | null>(null);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [ownerName, setOwnerName] = useState<string>('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPetDetails = async () => {
+      if (!id) return;
+
+      try {
+        setIsLoading(true);
+        // Fetch pet data from Supabase
+        const petData = await getPetById(id);
+        setPet(petData);
+
+        // Fetch owner name
+        if (petData.owner_id) {
+          const { data: ownerData } = await supabase
+            .from('owners')
+            .select('name')
+            .eq('id', petData.owner_id)
+            .single();
+          
+          if (ownerData) {
+            setOwnerName(ownerData.name);
+          }
+        }
+
+        // Fetch medical records for this pet
+        const records = await getMedicalRecords(id);
+        setMedicalRecords(records);
+
+        // Check if pet has an image
+        const { data: imageData } = await supabase
+          .from('pets')
+          .select('image_url')
+          .eq('id', id)
+          .single();
+        
+        if (imageData && imageData.image_url) {
+          setImageUrl(imageData.image_url);
+        }
+      } catch (error) {
+        console.error('Error fetching pet details:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load pet details. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPetDetails();
+  }, [id, toast]);
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMMM d, yyyy');
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  const handleUploadPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id) return;
+
+    try {
+      setUploadingPhoto(true);
+      
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `pets/${fileName}`;
+
+      // Upload the file to Supabase Storage
+      const { error: uploadError, data } = await supabase.storage
+        .from('pet-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('pet-images')
+        .getPublicUrl(filePath);
+
+      const imageUrl = publicUrlData.publicUrl;
+      
+      // Update the pet record with the image URL
+      const { error: updateError } = await supabase
+        .from('pets')
+        .update({ image_url: imageUrl })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // Update the UI
+      setImageUrl(imageUrl);
+      toast({
+        title: "Success",
+        description: "Pet photo uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload photo. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
   if (!pet) {
     return (
       <Layout>
@@ -92,7 +187,7 @@ const PetDetails: React.FC = () => {
           </Button>
           <SectionHeader 
             title={pet.name} 
-            description={`${pet.breed} · ${pet.age} years old`}
+            description={`${pet.breed || 'Unknown breed'} · ${pet.age || '?'} years old`}
             buttonText="Edit Pet"
             buttonIcon={<Edit className="h-4 w-4" />}
             onButtonClick={() => console.log('Edit pet clicked')}
@@ -102,18 +197,54 @@ const PetDetails: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
             <Card className="overflow-hidden">
-              <div 
-                className="h-48 w-full bg-cover bg-center"
-                style={{ 
-                  backgroundImage: `url(${pet.imageUrl})`,
-                }}
-              ></div>
+              <div className="relative">
+                <div 
+                  className="h-48 w-full bg-cover bg-center"
+                  style={{ 
+                    backgroundImage: imageUrl ? `url(${imageUrl})` : 'none',
+                    backgroundColor: !imageUrl ? '#f1f5f9' : 'transparent'
+                  }}
+                >
+                  {!imageUrl && (
+                    <div className="flex items-center justify-center h-full">
+                      <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute bottom-2 right-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1">
+                        <Upload className="h-3 w-3" /> Photo
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Upload Pet Photo</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <Input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleUploadPhoto}
+                          disabled={uploadingPhoto}
+                        />
+                        {uploadingPhoto && (
+                          <div className="flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
               <CardContent className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <Badge variant={pet.gender === 'Male' ? 'default' : 'secondary'}>
-                    {pet.gender}
+                    {pet.gender || 'Unknown'}
                   </Badge>
-                  <p className="text-sm text-muted-foreground">{pet.weight} kg</p>
+                  <p className="text-sm text-muted-foreground">{pet.weight ? `${pet.weight} kg` : 'Weight unknown'}</p>
                 </div>
                 
                 <div className="space-y-4">
@@ -121,7 +252,7 @@ const PetDetails: React.FC = () => {
                     <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="text-sm text-muted-foreground">Microchip ID</p>
-                      <p>{pet.microchipId || 'Not available'}</p>
+                      <p>{pet.microchip_id || 'Not available'}</p>
                     </div>
                   </div>
                   
@@ -129,11 +260,7 @@ const PetDetails: React.FC = () => {
                     <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="text-sm text-muted-foreground">Date of Birth</p>
-                      <p>{new Date(pet.dateOfBirth).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}</p>
+                      <p>{pet.date_of_birth ? formatDate(pet.date_of_birth.toString()) : 'Not available'}</p>
                     </div>
                   </div>
                   
@@ -143,20 +270,21 @@ const PetDetails: React.FC = () => {
                       <p className="text-sm text-muted-foreground">Owner</p>
                       <p 
                         className="text-primary hover:underline cursor-pointer"
-                        onClick={() => navigate(`/owners/${pet.ownerId}`)}
+                        onClick={() => navigate(`/owners/${pet.owner_id}`)}
                       >
-                        {pet.ownerName}
+                        {ownerName || 'Unknown'}
                       </p>
                     </div>
                   </div>
                 </div>
                 
-                {pet.upcomingAppointment && (
+                {/* Only show next appointment if it exists in the medical records */}
+                {medicalRecords.length > 0 && medicalRecords[0].next_appointment && (
                   <div className="mt-6 pt-6 border-t border-border">
                     <h4 className="text-sm font-medium mb-3">Upcoming Appointment</h4>
                     <div className="bg-accent/50 rounded-md p-3">
-                      <p className="font-medium">{pet.upcomingAppointment.date}</p>
-                      <p className="text-sm text-muted-foreground">{pet.upcomingAppointment.reason}</p>
+                      <p className="font-medium">{formatDate(medicalRecords[0].next_appointment)}</p>
+                      <p className="text-sm text-muted-foreground">{medicalRecords[0].reason_for_visit || 'Check-up'}</p>
                     </div>
                   </div>
                 )}
@@ -182,27 +310,25 @@ const PetDetails: React.FC = () => {
                   </Button>
                 </div>
                 
-                {pet.medicalRecords && pet.medicalRecords.length > 0 ? (
+                {medicalRecords && medicalRecords.length > 0 ? (
                   <div className="space-y-4">
-                    {pet.medicalRecords.map(record => (
+                    {medicalRecords.map(record => (
                       <div 
                         key={record.id}
                         className="p-4 border border-border rounded-md hover:bg-accent/50 cursor-pointer transition-colors"
                         onClick={() => navigate(`/records/${record.id}`)}
                       >
                         <div className="flex justify-between mb-2">
-                          <p className="font-medium">{record.type}</p>
-                          <Badge variant={record.status === 'Completed' ? 'secondary' : 'outline'}>
-                            {record.status}
+                          <p className="font-medium">{record.reason_for_visit || 'Medical Visit'}</p>
+                          <Badge variant="secondary">
+                            Completed
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-1">{record.description}</p>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          {record.diagnosis || record.treatment || 'No diagnosis recorded'}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(record.date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
+                          {formatDate(record.visit_date)}
                         </p>
                       </div>
                     ))}

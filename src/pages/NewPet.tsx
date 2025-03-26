@@ -19,7 +19,7 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { CalendarIcon, ArrowLeft, Loader2 } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, Loader2, Upload, ImageIcon } from 'lucide-react';
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPet, getOwners, Owner, Timestamp } from '@/lib/supabaseService';
+import { supabase } from '@/integrations/supabase/client';
 
 const NewPet: React.FC = () => {
   const navigate = useNavigate();
@@ -43,6 +44,8 @@ const NewPet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingOwners, setLoadingOwners] = useState(ownerId ? false : true);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   
   const [petData, setPetData] = useState({
     name: '',
@@ -90,6 +93,55 @@ const NewPet: React.FC = () => {
     setPetData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setPhotoFile(file);
+    
+    // Create preview URL
+    const fileReader = new FileReader();
+    fileReader.onload = (e) => {
+      if (e.target?.result) {
+        setPhotoPreview(e.target.result as string);
+      }
+    };
+    fileReader.readAsDataURL(file);
+  };
+
+  const uploadPhoto = async (petId: string): Promise<string | null> => {
+    if (!photoFile) return null;
+    
+    try {
+      // Create a unique filename
+      const fileExt = photoFile.name.split('.').pop();
+      const fileName = `${petId}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `pets/${fileName}`;
+
+      // Upload the file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('pet-images')
+        .upload(filePath, photoFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data } = supabase.storage
+        .from('pet-images')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      toast({
+        title: "Warning",
+        description: "Pet was created but photo could not be uploaded. You can add it later.",
+        variant: "default"
+      });
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -124,8 +176,8 @@ const NewPet: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Save data to Supabase
-      await createPet({
+      // First create the pet to get an ID
+      const { id } = await createPet({
         name: petData.name,
         species: petData.species,
         breed: petData.breed,
@@ -139,6 +191,19 @@ const NewPet: React.FC = () => {
         notes: petData.notes || null,
         owner_id: petData.ownerId
       });
+      
+      // Now upload the photo if one was provided
+      if (photoFile) {
+        const imageUrl = await uploadPhoto(id);
+        
+        // Update the pet with the image URL
+        if (imageUrl) {
+          await supabase
+            .from('pets')
+            .update({ image_url: imageUrl })
+            .eq('id', id);
+        }
+      }
       
       toast({
         title: "Pet added successfully",
@@ -274,6 +339,23 @@ const NewPet: React.FC = () => {
                         <SelectItem value="Female">Female</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="photo">Photo</Label>
+                    <div className="grid grid-cols-[1fr_auto] gap-3">
+                      <Input 
+                        id="photo" 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                      />
+                    </div>
+                    {photoPreview && (
+                      <div className="mt-2 relative w-24 h-24 rounded-md overflow-hidden border border-input">
+                        <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import PetCard from '@/components/ui-components/PetCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -13,94 +14,135 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
-
-const pets = [
-  {
-    id: '1',
-    name: 'Buddy',
-    species: 'Dog',
-    breed: 'Golden Retriever',
-    age: 3,
-    gender: 'Male' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=1924',
-    upcomingAppointment: {
-      date: 'May 20, 2023',
-      reason: 'Annual Checkup'
-    }
-  },
-  {
-    id: '2',
-    name: 'Whiskers',
-    species: 'Cat',
-    breed: 'Maine Coon',
-    age: 2,
-    gender: 'Female' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1570824104453-508955ab713e?q=80&w=2011',
-    upcomingAppointment: {
-      date: 'June 5, 2023',
-      reason: 'Vaccination'
-    }
-  },
-  {
-    id: '3',
-    name: 'Rex',
-    species: 'Dog',
-    breed: 'German Shepherd',
-    age: 4,
-    gender: 'Male' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?q=80&w=1974'
-  },
-  {
-    id: '4',
-    name: 'Luna',
-    species: 'Cat',
-    breed: 'Siamese',
-    age: 1,
-    gender: 'Female' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1618159493171-3cefbdebd911?q=80&w=1964'
-  },
-  {
-    id: '5',
-    name: 'Charlie',
-    species: 'Dog',
-    breed: 'Beagle',
-    age: 5,
-    gender: 'Male' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1586671267731-da2cf3ceeb80?q=80&w=1989'
-  },
-  {
-    id: '6',
-    name: 'Daisy',
-    species: 'Dog',
-    breed: 'Labrador',
-    age: 2,
-    gender: 'Female' as const,
-    imageUrl: 'https://images.unsplash.com/photo-1600804340584-c7db2eacf0bf?q=80&w=1974'
-  }
-];
+import { getPets, getMedicalRecords, Pet } from '@/lib/supabaseService';
+import { useToast } from '@/components/ui/use-toast';
 
 const Pets: React.FC = () => {
+  const { toast } = useToast();
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('name-asc');
+  
   const [filters, setFilters] = useState({
     species: '',
     gender: '',
   });
   
   const [showFilters, setShowFilters] = useState(false);
+  const [petAppointments, setPetAppointments] = useState<Record<string, { date: string, reason: string }>>({});
   
-  const filteredPets = pets.filter(pet => {
-    if (filters.species && pet.species !== filters.species) return false;
-    if (filters.gender && pet.gender !== filters.gender) return false;
-    return true;
-  });
+  useEffect(() => {
+    const fetchPets = async () => {
+      try {
+        setIsLoading(true);
+        // Fetch all pets from Supabase
+        const petsData = await getPets();
+        setPets(petsData);
+        
+        // Fetch upcoming appointments for each pet
+        const appointments: Record<string, { date: string, reason: string }> = {};
+        
+        for (const pet of petsData) {
+          if (pet.id) {
+            const records = await getMedicalRecords(pet.id);
+            // Find the nearest upcoming appointment
+            const upcomingAppointment = records
+              .filter(record => record.next_appointment)
+              .sort((a, b) => {
+                const dateA = new Date(a.next_appointment || '');
+                const dateB = new Date(b.next_appointment || '');
+                return dateA.getTime() - dateB.getTime();
+              })[0];
+              
+            if (upcomingAppointment && upcomingAppointment.next_appointment) {
+              const appointmentDate = new Date(upcomingAppointment.next_appointment);
+              
+              if (appointmentDate > new Date()) {
+                appointments[pet.id] = {
+                  date: appointmentDate.toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  }),
+                  reason: upcomingAppointment.reason_for_visit || 'Check-up'
+                };
+              }
+            }
+          }
+        }
+        
+        setPetAppointments(appointments);
+      } catch (error) {
+        console.error('Error fetching pets:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load pets. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPets();
+  }, [toast]);
+  
+  const sortPets = (a: Pet, b: Pet) => {
+    switch (sortOrder) {
+      case 'name-asc':
+        return (a.name || '').localeCompare(b.name || '');
+      case 'name-desc':
+        return (b.name || '').localeCompare(a.name || '');
+      case 'age-asc':
+        return (a.age || 0) - (b.age || 0);
+      case 'age-desc':
+        return (b.age || 0) - (a.age || 0);
+      default:
+        return 0;
+    }
+  };
+  
+  const filteredPets = pets
+    .filter(pet => {
+      // Search by name
+      if (searchTerm && !pet.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      
+      // Filter by species
+      if (filters.species && pet.species !== filters.species) {
+        return false;
+      }
+      
+      // Filter by gender
+      if (filters.gender && pet.gender !== filters.gender) {
+        return false;
+      }
+      
+      return true;
+    })
+    .sort(sortPets);
   
   const clearFilters = () => {
     setFilters({
       species: '',
       gender: '',
     });
+    setSearchTerm('');
   };
   
-  const hasActiveFilters = filters.species || filters.gender;
+  const hasActiveFilters = filters.species || filters.gender || searchTerm;
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
   
   return (
     <Layout>
@@ -118,6 +160,8 @@ const Pets: React.FC = () => {
             <Input 
               placeholder="Search pets..." 
               className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
@@ -137,12 +181,12 @@ const Pets: React.FC = () => {
                 className="gap-1 cursor-pointer"
                 onClick={clearFilters}
               >
-                {Object.values(filters).filter(Boolean).length} Filters
+                {Object.values(filters).filter(Boolean).length + (searchTerm ? 1 : 0)} Filters
                 <X className="h-3 w-3" />
               </Badge>
             )}
             
-            <Select value={"name-asc"}>
+            <Select value={sortOrder} onValueChange={setSortOrder}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -168,7 +212,7 @@ const Pets: React.FC = () => {
                   <SelectValue placeholder="All Species" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all_species">All Species</SelectItem>
+                  <SelectItem value="">All Species</SelectItem>
                   <SelectItem value="Dog">Dog</SelectItem>
                   <SelectItem value="Cat">Cat</SelectItem>
                   <SelectItem value="Bird">Bird</SelectItem>
@@ -187,7 +231,7 @@ const Pets: React.FC = () => {
                   <SelectValue placeholder="All Genders" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all_genders">All Genders</SelectItem>
+                  <SelectItem value="">All Genders</SelectItem>
                   <SelectItem value="Male">Male</SelectItem>
                   <SelectItem value="Female">Female</SelectItem>
                 </SelectContent>
@@ -209,7 +253,17 @@ const Pets: React.FC = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
           {filteredPets.map((pet) => (
-            <PetCard key={pet.id} {...pet} />
+            <PetCard 
+              key={pet.id} 
+              id={pet.id || ''}
+              name={pet.name}
+              species={pet.species}
+              breed={pet.breed || 'Unknown'}
+              age={pet.age || 0}
+              gender={pet.gender as 'Male' | 'Female' || 'Unknown'}
+              imageUrl={pet.image_url}
+              upcomingAppointment={pet.id && petAppointments[pet.id] ? petAppointments[pet.id] : undefined}
+            />
           ))}
         </div>
         

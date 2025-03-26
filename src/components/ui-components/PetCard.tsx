@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Eye, Calendar, Stethoscope } from 'lucide-react';
+import { Eye, Calendar, Stethoscope, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,7 @@ interface PetCardProps {
   breed: string;
   age: number;
   imageUrl?: string;
-  gender: 'Male' | 'Female';
+  gender: 'Male' | 'Female' | 'Unknown';
   upcomingAppointment?: {
     date: string;
     reason: string;
@@ -42,11 +42,17 @@ const PetCard: React.FC<PetCardProps> = ({
   return (
     <Card className="overflow-hidden hover-lift">
       <div className="relative h-48 overflow-hidden">
-        <img 
-          src={imageUrl || defaultImage} 
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
-        />
+        {imageUrl || defaultImage ? (
+          <img 
+            src={imageUrl || defaultImage} 
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full bg-accent/20">
+            <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+          </div>
+        )}
         <div className="absolute top-2 right-2">
           <Badge variant="secondary" className="font-medium">
             {species}

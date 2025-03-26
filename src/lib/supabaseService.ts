@@ -33,6 +33,7 @@ export interface Pet {
   notes?: string | null;
   createdAt?: Date;
   owner_id: string;
+  image_url?: string | null;
 }
 
 export interface MedicalRecord {
@@ -211,7 +212,8 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
     policy_number: pet.policy_number,
     notes: pet.notes,
     owner_id: pet.owner_id,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    image_url: pet.image_url
   };
 
   console.log("Creating pet with data:", petData);
