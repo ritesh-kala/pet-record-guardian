@@ -10,6 +10,7 @@ export interface Owner {
   address?: string | null;
   notes?: string;
   createdAt?: Date;
+  user_id?: string;
   // These fields match columns from the Supabase database
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
@@ -25,28 +26,28 @@ export interface Pet {
   age?: number | null;
   weight?: number | null;
   gender?: string | null;
-  dateOfBirth?: Timestamp | string | null;
-  microchipId?: string | null;
-  insuranceProvider?: string | null;
-  policyNumber?: string | null;
+  date_of_birth?: Timestamp | string | null;
+  microchip_id?: string | null;
+  insurance_provider?: string | null;
+  policy_number?: string | null;
   notes?: string | null;
   createdAt?: Date;
-  ownerId: string;
+  owner_id: string;
 }
 
 export interface MedicalRecord {
   id?: string;
-  petId: string;
-  visitDate: string;
-  reasonForVisit?: string | null;
+  pet_id: string;
+  visit_date: string;
+  reason_for_visit?: string | null;
   diagnosis?: string | null;
   treatment?: string | null;
   prescriptions?: string[] | null;
-  nextAppointment?: string | null;
+  next_appointment?: string | null;
   veterinarian?: string | null;
   notes?: string | null;
   createdAt?: Date;
-  vaccinationsGiven?: string[] | null;
+  vaccinations_given?: string[] | null;
 }
 
 // Timestamp helper class to mimic Firebase's Timestamp
@@ -111,7 +112,35 @@ export async function getOwnerById(id: string): Promise<Owner> {
   return data;
 }
 
+export async function getUserOwner(): Promise<Owner | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) return null;
+  
+  const userId = sessionData.session.user.id;
+  
+  const { data, error } = await supabase
+    .from('owners')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+  
+  if (error) {
+    console.error("Error fetching user owner:", error);
+    throw error;
+  }
+  
+  return data;
+}
+
 export async function createOwner(owner: Owner): Promise<{ id: string }> {
+  // Get the current user ID if not provided
+  if (!owner.user_id) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session) {
+      owner.user_id = sessionData.session.user.id;
+    }
+  }
+
   const { data, error } = await supabase
     .from('owners')
     .insert([{ 
@@ -123,12 +152,17 @@ export async function createOwner(owner: Owner): Promise<{ id: string }> {
       emergency_contact_phone: owner.emergency_contact_phone,
       preferred_vet_name: owner.preferred_vet_name,
       preferred_vet_contact: owner.preferred_vet_contact,
+      user_id: owner.user_id,
       created_at: new Date().toISOString()
     }])
     .select('id')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error creating owner:", error);
+    throw error;
+  }
+  
   if (!data) throw new Error('Failed to create owner');
   return { id: data.id };
 }
@@ -146,23 +180,7 @@ export async function getPets(ownerId?: string): Promise<Pet[]> {
   const { data, error } = await query;
   if (error) throw error;
   
-  // Convert database fields to our interface
-  return data?.map(pet => ({
-    id: pet.id,
-    name: pet.name,
-    species: pet.species,
-    breed: pet.breed,
-    age: pet.age,
-    weight: pet.weight,
-    gender: pet.gender,
-    dateOfBirth: pet.date_of_birth ? isoStringToTimestamp(pet.date_of_birth) : null,
-    microchipId: pet.microchip_id,
-    insuranceProvider: pet.insurance_provider,
-    policyNumber: pet.policy_number,
-    notes: pet.notes,
-    createdAt: pet.created_at ? new Date(pet.created_at) : undefined,
-    ownerId: pet.owner_id
-  })) || [];
+  return data || [];
 }
 
 export async function getPetById(id: string): Promise<Pet> {
@@ -175,23 +193,7 @@ export async function getPetById(id: string): Promise<Pet> {
   if (error) throw error;
   if (!data) throw new Error('Pet not found');
   
-  // Convert database fields to our interface
-  return {
-    id: data.id,
-    name: data.name,
-    species: data.species,
-    breed: data.breed,
-    age: data.age,
-    weight: data.weight,
-    gender: data.gender,
-    dateOfBirth: data.date_of_birth ? isoStringToTimestamp(data.date_of_birth) : null,
-    microchipId: data.microchip_id,
-    insuranceProvider: data.insurance_provider,
-    policyNumber: data.policy_number,
-    notes: data.notes,
-    createdAt: data.created_at ? new Date(data.created_at) : undefined,
-    ownerId: data.owner_id
-  };
+  return data as Pet;
 }
 
 export async function createPet(pet: Pet): Promise<{ id: string }> {
@@ -203,12 +205,12 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
     age: pet.age,
     weight: pet.weight,
     gender: pet.gender,
-    date_of_birth: pet.dateOfBirth ? timestampToISOString(pet.dateOfBirth) : null,
-    microchip_id: pet.microchipId,
-    insurance_provider: pet.insuranceProvider,
-    policy_number: pet.policyNumber,
+    date_of_birth: pet.date_of_birth ? timestampToISOString(pet.date_of_birth) : null,
+    microchip_id: pet.microchip_id,
+    insurance_provider: pet.insurance_provider,
+    policy_number: pet.policy_number,
     notes: pet.notes,
-    owner_id: pet.ownerId,
+    owner_id: pet.owner_id,
     created_at: new Date().toISOString()
   };
 
@@ -236,21 +238,7 @@ export async function getMedicalRecords(petId?: string): Promise<MedicalRecord[]
   const { data, error } = await query;
   if (error) throw error;
   
-  // Map database fields to our interface
-  return data?.map(record => ({
-    id: record.id,
-    petId: record.pet_id,
-    visitDate: record.visit_date,
-    reasonForVisit: record.reason_for_visit,
-    diagnosis: record.diagnosis,
-    treatment: record.treatment,
-    prescriptions: record.prescriptions,
-    nextAppointment: record.next_appointment,
-    veterinarian: record.veterinarian,
-    notes: record.additional_notes,
-    vaccinationsGiven: record.vaccinations_given,
-    createdAt: record.created_at ? new Date(record.created_at) : undefined
-  })) || [];
+  return data || [];
 }
 
 export async function getMedicalRecordById(id: string): Promise<MedicalRecord> {
@@ -263,36 +251,22 @@ export async function getMedicalRecordById(id: string): Promise<MedicalRecord> {
   if (error) throw error;
   if (!data) throw new Error('Medical record not found');
   
-  // Map database fields to our interface
-  return {
-    id: data.id,
-    petId: data.pet_id,
-    visitDate: data.visit_date,
-    reasonForVisit: data.reason_for_visit,
-    diagnosis: data.diagnosis,
-    treatment: data.treatment,
-    prescriptions: data.prescriptions,
-    nextAppointment: data.next_appointment,
-    veterinarian: data.veterinarian,
-    notes: data.additional_notes,
-    vaccinationsGiven: data.vaccinations_given,
-    createdAt: data.created_at ? new Date(data.created_at) : undefined
-  };
+  return data as MedicalRecord;
 }
 
 export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: string }> {
   // Map our interface to database fields
   const recordData = {
-    pet_id: record.petId,
-    visit_date: record.visitDate,
-    reason_for_visit: record.reasonForVisit,
+    pet_id: record.pet_id,
+    visit_date: record.visit_date,
+    reason_for_visit: record.reason_for_visit,
     diagnosis: record.diagnosis,
     treatment: record.treatment,
     prescriptions: record.prescriptions,
-    next_appointment: record.nextAppointment,
+    next_appointment: record.next_appointment,
     veterinarian: record.veterinarian,
     additional_notes: record.notes,
-    vaccinations_given: record.vaccinationsGiven,
+    vaccinations_given: record.vaccinations_given,
     created_at: new Date().toISOString()
   };
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -8,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getOwners, Owner } from '@/lib/supabaseService';
+import { getOwners, Owner, getUserOwner } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
 
 const Owners: React.FC = () => {
@@ -20,11 +19,16 @@ const Owners: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [userHasOwnerProfile, setUserHasOwnerProfile] = useState(false);
 
   useEffect(() => {
     const fetchOwners = async () => {
       try {
         setIsLoading(true);
+        
+        const userOwner = await getUserOwner();
+        setUserHasOwnerProfile(!!userOwner);
+        
         const ownersData = await getOwners();
         setOwners(ownersData);
         setFilteredOwners(ownersData);
@@ -69,6 +73,14 @@ const Owners: React.FC = () => {
     });
     
     setFilteredOwners(sorted);
+  };
+
+  const handleAddOwner = () => {
+    if (!userHasOwnerProfile) {
+      navigate('/owners/new');
+    } else {
+      navigate('/owners/new');
+    }
   };
 
   return (
@@ -123,7 +135,7 @@ const Owners: React.FC = () => {
             <p className="text-muted-foreground mb-6">
               {searchQuery ? 'No owners match your search criteria.' : 'You haven\'t added any owners yet.'}
             </p>
-            <Button onClick={() => navigate('/owners/new')}>
+            <Button onClick={handleAddOwner}>
               <Plus className="mr-2 h-4 w-4" />
               Add New Owner
             </Button>

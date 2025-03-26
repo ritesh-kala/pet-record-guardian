@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { User } from '@supabase/supabase-js';
+import { createOwner } from '@/lib/supabaseService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -42,15 +44,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
       
+      // If auto-confirm is enabled in Supabase
+      if (data.user) {
+        setCurrentUser(data.user);
+        
+        // Create a default owner record for the user
+        try {
+          await createOwner({
+            name: name,
+            email: email,
+            phone: null,
+            user_id: data.user.id
+          });
+          
+          console.log("Default owner profile created successfully");
+        } catch (ownerError) {
+          console.error("Failed to create default owner profile:", ownerError);
+          // We don't want to block registration if owner creation fails
+        }
+      }
+      
       toast({
         title: "Account created successfully",
         description: "Check your email for a confirmation link.",
       });
-      
-      // If auto-confirm is enabled in Supabase
-      if (data.user) {
-        setCurrentUser(data.user);
-      }
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({

@@ -110,6 +110,7 @@ export type Database = {
           preferred_vet_contact: string | null
           preferred_vet_name: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -123,6 +124,7 @@ export type Database = {
           preferred_vet_contact?: string | null
           preferred_vet_name?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -136,6 +138,7 @@ export type Database = {
           preferred_vet_contact?: string | null
           preferred_vet_name?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

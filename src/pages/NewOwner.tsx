@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
@@ -11,8 +12,8 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { ArrowLeft } from 'lucide-react';
-import { createOwner } from '@/lib/supabaseService';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { createOwner, getUserOwner } from '@/lib/supabaseService';
 import { useAuth } from '@/contexts/AuthContext';
 
 const NewOwner: React.FC = () => {
@@ -20,6 +21,8 @@ const NewOwner: React.FC = () => {
   const { toast } = useToast();
   const { currentUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUserProfile, setIsUserProfile] = useState(false);
   
   const [ownerData, setOwnerData] = useState({
     name: '',
@@ -28,6 +31,38 @@ const NewOwner: React.FC = () => {
     address: '',
     notes: '',
   });
+
+  useEffect(() => {
+    const checkUserOwner = async () => {
+      if (!currentUser) return;
+      
+      setIsLoading(true);
+      try {
+        // Check if the user already has an owner profile
+        const userOwner = await getUserOwner();
+        
+        if (userOwner) {
+          // If the user is creating their first owner profile
+          navigate(`/owners/${userOwner.id}`);
+          return;
+        }
+        
+        // Pre-fill name and email from the user's auth profile
+        setOwnerData(prev => ({
+          ...prev, 
+          name: currentUser.user_metadata?.full_name || '',
+          email: currentUser.email || ''
+        }));
+        setIsUserProfile(true);
+      } catch (error) {
+        console.error('Error checking user owner:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkUserOwner();
+  }, [currentUser, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -60,10 +95,12 @@ const NewOwner: React.FC = () => {
     
     try {
       // Save data to Supabase
-      await createOwner({
+      const ownerToCreate = {
         ...ownerData,
-        userId: currentUser.id
-      });
+        user_id: isUserProfile ? currentUser.id : undefined
+      };
+      
+      const result = await createOwner(ownerToCreate);
       
       toast({
         title: "Owner added successfully",
@@ -72,7 +109,7 @@ const NewOwner: React.FC = () => {
       
       // Navigate back to owners page
       navigate('/owners');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding owner:', error);
       toast({
         title: "Error",
@@ -83,6 +120,16 @@ const NewOwner: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -97,8 +144,8 @@ const NewOwner: React.FC = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <SectionHeader 
-            title="Add New Owner" 
-            description="Enter the owner's information below" 
+            title={isUserProfile ? "Complete Your Profile" : "Add New Owner"} 
+            description={isUserProfile ? "Add your contact information" : "Enter the owner's information below"} 
           />
         </div>
 
@@ -114,6 +161,8 @@ const NewOwner: React.FC = () => {
                     placeholder="Enter full name" 
                     value={ownerData.name}
                     onChange={handleInputChange}
+                    readOnly={isUserProfile}
+                    className={isUserProfile ? "bg-muted" : ""}
                     required
                   />
                 </div>
@@ -127,6 +176,8 @@ const NewOwner: React.FC = () => {
                     placeholder="Enter email address" 
                     value={ownerData.email}
                     onChange={handleInputChange}
+                    readOnly={isUserProfile}
+                    className={isUserProfile ? "bg-muted" : ""}
                     required
                   />
                 </div>
@@ -182,7 +233,7 @@ const NewOwner: React.FC = () => {
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       Saving...
                     </div> : 
-                    "Save Owner"
+                    isUserProfile ? "Complete Profile" : "Save Owner"
                   }
                 </Button>
               </div>
