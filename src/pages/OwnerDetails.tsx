@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -34,7 +35,7 @@ const OwnerDetails: React.FC = () => {
         const isCurrentUserOwner = currentUser && ownerData.user_id === currentUser.id;
         setIsUserOwner(isCurrentUserOwner);
         
-        // Fetch pets for this owner
+        // Fetch pets for this owner - passing just the owner ID
         const petsData = await getPets(id);
         setPets(petsData);
       } catch (error) {
