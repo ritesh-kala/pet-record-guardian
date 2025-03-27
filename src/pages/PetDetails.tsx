@@ -35,8 +35,7 @@ const PetDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [ownerName, setOwnerName] = useState<string>('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
+  
   useEffect(() => {
     const fetchPetDetails = async () => {
       if (!id) return;
@@ -63,17 +62,6 @@ const PetDetails: React.FC = () => {
         // Fetch medical records for this pet
         const records = await getMedicalRecords(id);
         setMedicalRecords(records);
-
-        // Check if pet has an image
-        const { data: imageData } = await supabase
-          .from('pets')
-          .select('image_url')
-          .eq('id', id)
-          .single();
-        
-        if (imageData && imageData.image_url) {
-          setImageUrl(imageData.image_url);
-        }
       } catch (error) {
         console.error('Error fetching pet details:', error);
         toast({
@@ -132,7 +120,8 @@ const PetDetails: React.FC = () => {
       if (updateError) throw updateError;
 
       // Update the UI
-      setImageUrl(imageUrl);
+      setPet(prev => prev ? { ...prev, image_url: imageUrl } : null);
+      
       toast({
         title: "Success",
         description: "Pet photo uploaded successfully",
@@ -201,11 +190,11 @@ const PetDetails: React.FC = () => {
                 <div 
                   className="h-48 w-full bg-cover bg-center"
                   style={{ 
-                    backgroundImage: imageUrl ? `url(${imageUrl})` : 'none',
-                    backgroundColor: !imageUrl ? '#f1f5f9' : 'transparent'
+                    backgroundImage: pet.image_url ? `url(${pet.image_url})` : 'none',
+                    backgroundColor: !pet.image_url ? '#f1f5f9' : 'transparent'
                   }}
                 >
-                  {!imageUrl && (
+                  {!pet.image_url && (
                     <div className="flex items-center justify-center h-full">
                       <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
                     </div>

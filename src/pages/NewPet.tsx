@@ -189,7 +189,8 @@ const NewPet: React.FC = () => {
         insurance_provider: petData.insuranceProvider || null,
         policy_number: petData.policyNumber || null,
         notes: petData.notes || null,
-        owner_id: petData.ownerId
+        owner_id: petData.ownerId,
+        image_url: null // We'll update this after upload
       });
       
       // Now upload the photo if one was provided

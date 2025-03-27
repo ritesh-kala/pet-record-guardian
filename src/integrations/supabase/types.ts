@@ -150,6 +150,7 @@ export type Database = {
           date_of_birth: string | null
           gender: string | null
           id: string
+          image_url: string | null
           insurance_provider: string | null
           microchip_id: string | null
           name: string
@@ -167,6 +168,7 @@ export type Database = {
           date_of_birth?: string | null
           gender?: string | null
           id?: string
+          image_url?: string | null
           insurance_provider?: string | null
           microchip_id?: string | null
           name: string
@@ -184,6 +186,7 @@ export type Database = {
           date_of_birth?: string | null
           gender?: string | null
           id?: string
+          image_url?: string | null
           insurance_provider?: string | null
           microchip_id?: string | null
           name?: string
