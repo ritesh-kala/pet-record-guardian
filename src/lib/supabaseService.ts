@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 // Types
@@ -323,10 +324,10 @@ export async function getAttachmentsByRecordId(recordId: string): Promise<Attach
   const attachments: Attachment[] = data?.map(item => ({
     id: item.id,
     record_id: item.record_id,
-    file_name: item.file_name || 'Unknown file', // Provide a default if missing
+    file_name: item.file_name || 'Unknown file', 
     file_url: item.file_url,
-    file_type: item.file_type || 'application/octet-stream', // Provide a default if missing
-    file_size: item.file_size,
+    file_type: item.file_type || 'application/octet-stream',
+    file_size: item.file_size || null,
     description: item.description,
     uploaded_at: item.uploaded_at || item.created_at
   })) || [];
