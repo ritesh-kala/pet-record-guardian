@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 // Types
@@ -296,8 +295,10 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
     additional_notes: record.notes,
     vaccinations_given: record.vaccinations_given,
     created_at: new Date().toISOString(),
-    record_type: record.type  // Changed from type to record_type
+    record_type: record.type
   };
+
+  console.log("Creating medical record with data:", recordData);
 
   const { data, error } = await supabase
     .from('medical_records')
@@ -305,7 +306,11 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
     .select('id')
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error creating medical record:", error);
+    throw error;
+  }
+  
   if (!data) throw new Error('Failed to create medical record');
   return { id: data.id };
 }

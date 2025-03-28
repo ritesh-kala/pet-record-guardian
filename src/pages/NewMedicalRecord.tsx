@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, ArrowLeft, Upload, X, FileText, ChevronDown } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, Upload, X, FileText } from 'lucide-react';
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -24,12 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 import { 
   createMedicalRecord, 
@@ -41,6 +35,7 @@ import {
   createAttachment, 
   getUserOwner 
 } from '@/lib/supabaseService';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 
 const NewMedicalRecord: React.FC = () => {
@@ -53,6 +48,7 @@ const NewMedicalRecord: React.FC = () => {
   const initPetId = paramPetId || queryPetId;
   
   const { toast } = useToast();
+  const { currentUser } = useAuth();
 
   const [date, setDate] = useState<Date>();
   const [nextAppointmentDate, setNextAppointmentDate] = useState<Date>();
@@ -209,10 +205,21 @@ const NewMedicalRecord: React.FC = () => {
       return;
     }
 
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "You need to be logged in to add medical records.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
-      const { id: recordId } = await createMedicalRecord({
+      console.log("Submitting record with type:", recordType);
+      
+      const recordData = {
         pet_id: selectedPetId,
         visit_date: date ? format(date, 'yyyy-MM-dd') : '',
         reason_for_visit: medicalData.reasonForVisit || null,
@@ -224,7 +231,11 @@ const NewMedicalRecord: React.FC = () => {
         notes: medicalData.additionalNotes || null,
         vaccinations_given: medicalData.vaccinationsGiven.length > 0 ? medicalData.vaccinationsGiven : null,
         type: recordType
-      });
+      };
+      
+      console.log("Creating medical record with:", recordData);
+      
+      const { id: recordId } = await createMedicalRecord(recordData);
       
       if (files.length > 0) {
         for (let i = 0; i < files.length; i++) {
@@ -276,9 +287,15 @@ const NewMedicalRecord: React.FC = () => {
       navigate(`/pets/${selectedPetId}`);
     } catch (error) {
       console.error('Error adding medical record:', error);
+      let errorMessage = "Failed to add medical record. Please try again.";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to add medical record. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
