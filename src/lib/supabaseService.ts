@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 // Types
@@ -11,7 +10,6 @@ export interface Owner {
   notes?: string;
   createdAt?: Date;
   user_id?: string;
-  // These fields match columns from the Supabase database
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
   preferred_vet_name?: string | null;
@@ -321,16 +319,22 @@ export async function getAttachmentsByRecordId(recordId: string): Promise<Attach
   if (error) throw error;
   
   // Transform the data to ensure it conforms to the Attachment interface
-  const attachments: Attachment[] = data?.map(item => ({
-    id: item.id,
-    record_id: item.record_id,
-    file_name: item.file_name || 'Unknown file', 
-    file_url: item.file_url,
-    file_type: item.file_type || 'application/octet-stream',
-    file_size: item.file_size || null,
-    description: item.description,
-    uploaded_at: item.uploaded_at || item.created_at
-  })) || [];
+  const attachments: Attachment[] = data?.map(item => {
+    // Create an object that matches our Attachment interface
+    const attachment: Attachment = {
+      id: item.id,
+      record_id: item.record_id,
+      // Since these properties might not exist in the database, provide default values
+      file_name: 'Unknown file', // Default filename
+      file_url: item.file_url,
+      file_type: 'application/octet-stream', // Default MIME type
+      file_size: null,
+      description: item.description,
+      uploaded_at: item.created_at
+    };
+    
+    return attachment;
+  }) || [];
   
   return attachments;
 }
