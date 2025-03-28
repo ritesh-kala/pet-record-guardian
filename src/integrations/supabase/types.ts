@@ -51,6 +51,7 @@ export type Database = {
           pet_id: string | null
           prescriptions: string[] | null
           reason_for_visit: string | null
+          record_type: string | null
           treatment: string | null
           updated_at: string | null
           vaccinations_given: string[] | null
@@ -66,6 +67,7 @@ export type Database = {
           pet_id?: string | null
           prescriptions?: string[] | null
           reason_for_visit?: string | null
+          record_type?: string | null
           treatment?: string | null
           updated_at?: string | null
           vaccinations_given?: string[] | null
@@ -81,6 +83,7 @@ export type Database = {
           pet_id?: string | null
           prescriptions?: string[] | null
           reason_for_visit?: string | null
+          record_type?: string | null
           treatment?: string | null
           updated_at?: string | null
           vaccinations_given?: string[] | null

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -51,7 +50,6 @@ const NewMedicalRecord: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const queryPetId = queryParams.get('petId');
   
-  // Use either the path param or query param for petId
   const initPetId = paramPetId || queryPetId;
   
   const { toast } = useToast();
@@ -65,7 +63,6 @@ const NewMedicalRecord: React.FC = () => {
   const [fileDescriptions, setFileDescriptions] = useState<{ [key: string]: string }>({});
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   
-  // New state for pets dropdown
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string | undefined>(initPetId);
   const [isLoadingPets, setIsLoadingPets] = useState(false);
@@ -81,12 +78,10 @@ const NewMedicalRecord: React.FC = () => {
     vaccinationsGiven: [] as string[]
   });
 
-  // Fetch all pets for the current user
   useEffect(() => {
     const fetchUserPets = async () => {
       setIsLoadingPets(true);
       try {
-        // Get the owner for the current user
         const owner = await getUserOwner();
         if (!owner) {
           console.log("No owner found for current user");
@@ -94,11 +89,9 @@ const NewMedicalRecord: React.FC = () => {
           return;
         }
         
-        // Get all pets for this owner
         const userPets = await getPets(owner.id);
         setPets(userPets);
         
-        // If there's only one pet, select it automatically
         if (userPets.length === 1 && !selectedPetId) {
           setSelectedPetId(userPets[0].id);
         }
@@ -117,7 +110,6 @@ const NewMedicalRecord: React.FC = () => {
     fetchUserPets();
   }, [toast]);
 
-  // Fetch selected pet details whenever selectedPetId changes
   useEffect(() => {
     const fetchPet = async () => {
       if (!selectedPetId) {
@@ -153,7 +145,6 @@ const NewMedicalRecord: React.FC = () => {
 
   const handleArrayInputChange = (name: string, value: string) => {
     setMedicalData(prev => {
-      // Split the input value by commas to create an array
       const newValueArray = value.split(',').map(item => item.trim());
       return { ...prev, [name]: newValueArray };
     });
@@ -164,7 +155,6 @@ const NewMedicalRecord: React.FC = () => {
       const newFiles = Array.from(e.target.files);
       setFiles(prev => [...prev, ...newFiles]);
       
-      // Initialize progress and descriptions for new files
       const newProgress = { ...uploadProgress };
       const newDescriptions = { ...fileDescriptions };
       
@@ -181,7 +171,6 @@ const NewMedicalRecord: React.FC = () => {
   const handleRemoveFile = (fileName: string) => {
     setFiles(prev => prev.filter(file => file.name !== fileName));
     
-    // Clean up progress and descriptions
     const newProgress = { ...uploadProgress };
     const newDescriptions = { ...fileDescriptions };
     
@@ -223,7 +212,6 @@ const NewMedicalRecord: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Save medical record to Supabase
       const { id: recordId } = await createMedicalRecord({
         pet_id: selectedPetId,
         visit_date: date ? format(date, 'yyyy-MM-dd') : '',
@@ -238,29 +226,24 @@ const NewMedicalRecord: React.FC = () => {
         type: recordType
       });
       
-      // Upload attachments if any
       if (files.length > 0) {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           const description = fileDescriptions[file.name] || '';
           
           try {
-            // Update progress
             setUploadProgress(prev => ({
               ...prev,
               [file.name]: 10
             }));
             
-            // Upload file to storage
             const fileUrl = await uploadAttachmentFile(file, recordId);
             
-            // Update progress
             setUploadProgress(prev => ({
               ...prev,
               [file.name]: 50
             }));
             
-            // Create attachment record
             await createAttachment({
               record_id: recordId,
               file_name: file.name,
@@ -270,7 +253,6 @@ const NewMedicalRecord: React.FC = () => {
               description: description
             });
             
-            // Update progress
             setUploadProgress(prev => ({
               ...prev,
               [file.name]: 100
@@ -323,7 +305,6 @@ const NewMedicalRecord: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Pet Selection Dropdown */}
           <div className="space-y-2">
             <Label>Select Pet</Label>
             {isLoadingPets ? (

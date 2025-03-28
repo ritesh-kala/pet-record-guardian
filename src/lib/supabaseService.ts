@@ -296,7 +296,7 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
     additional_notes: record.notes,
     vaccinations_given: record.vaccinations_given,
     created_at: new Date().toISOString(),
-    type: record.type
+    record_type: record.type  // Changed from type to record_type
   };
 
   const { data, error } = await supabase
