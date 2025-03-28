@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -42,11 +41,9 @@ const PetDetails: React.FC = () => {
 
       try {
         setIsLoading(true);
-        // Fetch pet data from Supabase
         const petData = await getPetById(id);
         setPet(petData);
 
-        // Fetch owner name
         if (petData.owner_id) {
           const { data: ownerData } = await supabase
             .from('owners')
@@ -59,7 +56,6 @@ const PetDetails: React.FC = () => {
           }
         }
 
-        // Fetch medical records for this pet
         const records = await getMedicalRecords(id);
         setMedicalRecords(records);
       } catch (error) {
@@ -92,26 +88,22 @@ const PetDetails: React.FC = () => {
     try {
       setUploadingPhoto(true);
       
-      // Create a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `pets/${fileName}`;
 
-      // Upload the file to Supabase Storage
       const { error: uploadError, data } = await supabase.storage
         .from('pet-images')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('pet-images')
         .getPublicUrl(filePath);
 
       const imageUrl = publicUrlData.publicUrl;
       
-      // Update the pet record with the image URL
       const { error: updateError } = await supabase
         .from('pets')
         .update({ image_url: imageUrl })
@@ -119,7 +111,6 @@ const PetDetails: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      // Update the UI
       setPet(prev => prev ? { ...prev, image_url: imageUrl } : null);
       
       toast({
@@ -135,6 +126,27 @@ const PetDetails: React.FC = () => {
       });
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const getRecordTypeBadge = (type: string | null | undefined) => {
+    if (!type) return <Badge>General</Badge>;
+    
+    switch(type) {
+      case 'Vaccination':
+        return <Badge className="bg-green-500">Vaccination</Badge>;
+      case 'Health Checkup':
+        return <Badge className="bg-blue-500">Health Checkup</Badge>;
+      case 'Treatment':
+        return <Badge className="bg-purple-500">Treatment</Badge>;
+      case 'Prescription':
+        return <Badge className="bg-yellow-500">Prescription</Badge>;
+      case 'Allergy':
+        return <Badge className="bg-red-500">Allergy</Badge>;
+      case 'Diagnostic Test':
+        return <Badge className="bg-indigo-500">Diagnostic Test</Badge>;
+      default:
+        return <Badge>{type}</Badge>;
     }
   };
 
@@ -267,7 +279,6 @@ const PetDetails: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Only show next appointment if it exists in the medical records */}
                 {medicalRecords.length > 0 && medicalRecords[0].next_appointment && (
                   <div className="mt-6 pt-6 border-t border-border">
                     <h4 className="text-sm font-medium mb-3">Upcoming Appointment</h4>
@@ -309,9 +320,9 @@ const PetDetails: React.FC = () => {
                       >
                         <div className="flex justify-between mb-2">
                           <p className="font-medium">{record.reason_for_visit || 'Medical Visit'}</p>
-                          <Badge variant="secondary">
-                            Completed
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            {getRecordTypeBadge(record.type)}
+                          </div>
                         </div>
                         <p className="text-sm text-muted-foreground mb-1">
                           {record.diagnosis || record.treatment || 'No diagnosis recorded'}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, ArrowLeft } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, Upload, X, FileText } from 'lucide-react';
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -15,9 +16,25 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from '@/lib/utils';
-import { createMedicalRecord, getPetById } from '@/lib/supabaseService';
-import { Pet } from '@/lib/supabaseService';
+import { 
+  createMedicalRecord, 
+  getPetById, 
+  Pet, 
+  MedicalRecordType, 
+  uploadAttachmentFile, 
+  createAttachment 
+} from '@/lib/supabaseService';
+import { Card, CardContent } from '@/components/ui/card';
 
 const NewMedicalRecord: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +45,10 @@ const NewMedicalRecord: React.FC = () => {
   const [nextAppointmentDate, setNextAppointmentDate] = useState<Date>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pet, setPet] = useState<Pet | null>(null);
+  const [recordType, setRecordType] = useState<MedicalRecordType>('Health Checkup');
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileDescriptions, setFileDescriptions] = useState<{ [key: string]: string }>({});
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
   const [medicalData, setMedicalData] = useState({
     reasonForVisit: '',
@@ -73,6 +94,46 @@ const NewMedicalRecord: React.FC = () => {
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setFiles(prev => [...prev, ...newFiles]);
+      
+      // Initialize progress and descriptions for new files
+      const newProgress = { ...uploadProgress };
+      const newDescriptions = { ...fileDescriptions };
+      
+      newFiles.forEach(file => {
+        newProgress[file.name] = 0;
+        newDescriptions[file.name] = '';
+      });
+      
+      setUploadProgress(newProgress);
+      setFileDescriptions(newDescriptions);
+    }
+  };
+
+  const handleRemoveFile = (fileName: string) => {
+    setFiles(prev => prev.filter(file => file.name !== fileName));
+    
+    // Clean up progress and descriptions
+    const newProgress = { ...uploadProgress };
+    const newDescriptions = { ...fileDescriptions };
+    
+    delete newProgress[fileName];
+    delete newDescriptions[fileName];
+    
+    setUploadProgress(newProgress);
+    setFileDescriptions(newDescriptions);
+  };
+
+  const handleFileDescriptionChange = (fileName: string, description: string) => {
+    setFileDescriptions(prev => ({
+      ...prev,
+      [fileName]: description
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -97,8 +158,8 @@ const NewMedicalRecord: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Save data to Supabase
-      await createMedicalRecord({
+      // Save medical record to Supabase
+      const { id: recordId } = await createMedicalRecord({
         pet_id: petId || '',
         visit_date: date ? format(date, 'yyyy-MM-dd') : '',
         reason_for_visit: medicalData.reasonForVisit || null,
@@ -108,8 +169,57 @@ const NewMedicalRecord: React.FC = () => {
         next_appointment: nextAppointmentDate ? format(nextAppointmentDate, 'yyyy-MM-dd') : null,
         veterinarian: medicalData.veterinarian || null,
         notes: medicalData.additionalNotes || null,
-        vaccinations_given: medicalData.vaccinationsGiven.length > 0 ? medicalData.vaccinationsGiven : null
+        vaccinations_given: medicalData.vaccinationsGiven.length > 0 ? medicalData.vaccinationsGiven : null,
+        type: recordType
       });
+      
+      // Upload attachments if any
+      if (files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const description = fileDescriptions[file.name] || '';
+          
+          try {
+            // Update progress
+            setUploadProgress(prev => ({
+              ...prev,
+              [file.name]: 10
+            }));
+            
+            // Upload file to storage
+            const fileUrl = await uploadAttachmentFile(file, recordId);
+            
+            // Update progress
+            setUploadProgress(prev => ({
+              ...prev,
+              [file.name]: 50
+            }));
+            
+            // Create attachment record
+            await createAttachment({
+              record_id: recordId,
+              file_name: file.name,
+              file_url: fileUrl,
+              file_type: file.type,
+              file_size: file.size,
+              description: description
+            });
+            
+            // Update progress
+            setUploadProgress(prev => ({
+              ...prev,
+              [file.name]: 100
+            }));
+          } catch (error) {
+            console.error(`Error uploading file ${file.name}:`, error);
+            toast({
+              title: "Upload Error",
+              description: `Failed to upload ${file.name}. Please try again.`,
+              variant: "destructive"
+            });
+          }
+        }
+      }
       
       toast({
         title: "Medical record added",
@@ -149,6 +259,27 @@ const NewMedicalRecord: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label>Record Type</Label>
+              <Select value={recordType} onValueChange={(value) => setRecordType(value as MedicalRecordType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select record type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Record Types</SelectLabel>
+                    <SelectItem value="Vaccination">Vaccination</SelectItem>
+                    <SelectItem value="Health Checkup">Health Checkup</SelectItem>
+                    <SelectItem value="Treatment">Treatment / Procedure</SelectItem>
+                    <SelectItem value="Prescription">Prescription</SelectItem>
+                    <SelectItem value="Allergy">Allergic Reaction</SelectItem>
+                    <SelectItem value="Diagnostic Test">Diagnostic Test / Lab Result</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Visit Date</Label>
               <Popover>
@@ -278,6 +409,76 @@ const NewMedicalRecord: React.FC = () => {
               onChange={handleInputChange}
               rows={4}
             />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Attachments</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Upload prescription documents, diagnostic reports, or images
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="p-4 flex items-center justify-center">
+                    <label className="w-full flex flex-col items-center justify-center cursor-pointer py-4">
+                      <Upload className="h-12 w-12 text-muted-foreground mb-2" />
+                      <span className="text-center text-muted-foreground">
+                        Click to upload files
+                      </span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        onChange={handleFileChange}
+                        accept="image/*,.pdf,.doc,.docx,.txt"
+                      />
+                    </label>
+                  </CardContent>
+                </Card>
+                
+                {files.length > 0 && (
+                  <div className="space-y-3">
+                    {files.map((file) => (
+                      <Card key={file.name}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center">
+                              <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                              <span className="text-sm font-medium truncate max-w-[180px]">
+                                {file.name}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveFile(file.name)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <Input
+                            placeholder="Add a description for this file"
+                            value={fileDescriptions[file.name] || ''}
+                            onChange={(e) => handleFileDescriptionChange(file.name, e.target.value)}
+                            className="mb-2 text-xs"
+                          />
+                          
+                          {uploadProgress[file.name] > 0 && (
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-primary h-1.5 rounded-full" 
+                                style={{ width: `${uploadProgress[file.name]}%` }}
+                              ></div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3">

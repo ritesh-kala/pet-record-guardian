@@ -36,6 +36,15 @@ export interface Pet {
   image_url?: string | null;
 }
 
+export type MedicalRecordType = 
+  | 'Vaccination' 
+  | 'Health Checkup' 
+  | 'Treatment' 
+  | 'Prescription' 
+  | 'Allergy' 
+  | 'Diagnostic Test'
+  | 'Other';
+
 export interface MedicalRecord {
   id?: string;
   pet_id: string;
@@ -49,6 +58,18 @@ export interface MedicalRecord {
   notes?: string | null;
   createdAt?: Date;
   vaccinations_given?: string[] | null;
+  type?: MedicalRecordType | null;
+}
+
+export interface Attachment {
+  id?: string;
+  record_id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  file_size?: number | null;
+  description?: string | null;
+  uploaded_at?: string | null;
 }
 
 // Timestamp helper class to mimic Firebase's Timestamp
@@ -275,7 +296,8 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
     veterinarian: record.veterinarian,
     additional_notes: record.notes,
     vaccinations_given: record.vaccinations_given,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    type: record.type
   };
 
   const { data, error } = await supabase
@@ -287,4 +309,64 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
   if (error) throw error;
   if (!data) throw new Error('Failed to create medical record');
   return { id: data.id };
+}
+
+// Attachments
+export async function getAttachmentsByRecordId(recordId: string): Promise<Attachment[]> {
+  const { data, error } = await supabase
+    .from('attachments')
+    .select('*')
+    .eq('record_id', recordId);
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createAttachment(attachment: Attachment): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from('attachments')
+    .insert([{
+      record_id: attachment.record_id,
+      file_name: attachment.file_name,
+      file_url: attachment.file_url,
+      file_type: attachment.file_type,
+      file_size: attachment.file_size,
+      description: attachment.description
+    }])
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new Error('Failed to create attachment');
+  return { id: data.id };
+}
+
+export async function deleteAttachment(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('attachments')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function uploadAttachmentFile(file: File, recordId: string): Promise<string> {
+  // Create a unique filename
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${recordId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  // Upload the file to Supabase Storage
+  const { error: uploadError, data } = await supabase.storage
+    .from('medical_attachments')
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  // Get the public URL
+  const { data: publicUrlData } = supabase.storage
+    .from('medical_attachments')
+    .getPublicUrl(filePath);
+
+  return publicUrlData.publicUrl;
 }

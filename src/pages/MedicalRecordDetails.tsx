@@ -1,96 +1,135 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, Calendar, Stethoscope, PawPrint, User } from 'lucide-react';
-
-// Mock data for demonstration
-const getRecordById = (id: string) => {
-  const records = [
-    {
-      id: '1',
-      type: 'Vaccination',
-      date: '2022-02-10',
-      description: 'Rabies Vaccination',
-      diagnosis: '',
-      treatment: 'Rabies vaccine administered',
-      medications: 'None',
-      notes: 'Due for next vaccination in 1 year',
-      status: 'Completed',
-      pet: {
-        id: '1',
-        name: 'Buddy',
-        species: 'Dog',
-        breed: 'Golden Retriever',
-        imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=1924'
-      },
-      owner: {
-        id: '1',
-        name: 'John Smith'
-      },
-      veterinarian: 'Dr. Sarah Johnson'
-    },
-    {
-      id: '2',
-      type: 'Check-up',
-      date: '2022-06-15',
-      description: 'Annual wellness examination',
-      diagnosis: 'Healthy with minor dental plaque',
-      treatment: 'Dental cleaning recommended within 6 months',
-      medications: 'None',
-      notes: 'Weight: 34.2 kg. Overall good health.',
-      status: 'Completed',
-      pet: {
-        id: '1',
-        name: 'Buddy',
-        species: 'Dog',
-        breed: 'Golden Retriever',
-        imageUrl: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=1924'
-      },
-      owner: {
-        id: '1',
-        name: 'John Smith'
-      },
-      veterinarian: 'Dr. Michael Brown'
-    },
-    {
-      id: '3',
-      type: 'Dental',
-      date: '2022-08-20',
-      description: 'Dental cleaning',
-      diagnosis: 'Moderate tartar buildup',
-      treatment: 'Full dental cleaning and polishing performed',
-      medications: 'Antibiotics for 5 days',
-      notes: 'No complications during procedure. Follow-up in 6 months recommended.',
-      status: 'Completed',
-      pet: {
-        id: '2',
-        name: 'Whiskers',
-        species: 'Cat',
-        breed: 'Maine Coon',
-        imageUrl: 'https://images.unsplash.com/photo-1570824104453-508955ab713e?q=80&w=2011'
-      },
-      owner: {
-        id: '2',
-        name: 'Emily Johnson'
-      },
-      veterinarian: 'Dr. Sarah Johnson'
-    }
-  ];
-  
-  return records.find(record => record.id === id);
-};
+import { 
+  ArrowLeft, 
+  Edit, 
+  Calendar, 
+  Stethoscope, 
+  PawPrint, 
+  User, 
+  FileText,
+  Download,
+  Loader2
+} from 'lucide-react';
+import { 
+  getMedicalRecordById, 
+  getPetById, 
+  getAttachmentsByRecordId,
+  MedicalRecord, 
+  Pet, 
+  Attachment 
+} from '@/lib/supabaseService';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+import { format } from 'date-fns';
 
 const MedicalRecordDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const record = getRecordById(id || '');
+  const { toast } = useToast();
   
-  if (!record) {
+  const [record, setRecord] = useState<MedicalRecord | null>(null);
+  const [pet, setPet] = useState<Pet | null>(null);
+  const [ownerName, setOwnerName] = useState<string>('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchRecordDetails = async () => {
+      if (!id) return;
+      
+      try {
+        setIsLoading(true);
+        
+        // Fetch medical record
+        const recordData = await getMedicalRecordById(id);
+        setRecord(recordData);
+        
+        // Fetch pet data
+        if (recordData.pet_id) {
+          const petData = await getPetById(recordData.pet_id);
+          setPet(petData);
+          
+          // Fetch owner name
+          if (petData.owner_id) {
+            const { data: ownerData } = await supabase
+              .from('owners')
+              .select('name')
+              .eq('id', petData.owner_id)
+              .single();
+            
+            if (ownerData) {
+              setOwnerName(ownerData.name);
+            }
+          }
+        }
+        
+        // Fetch attachments
+        const attachmentData = await getAttachmentsByRecordId(id);
+        setAttachments(attachmentData);
+        
+      } catch (error) {
+        console.error('Error fetching record details:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load record details. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchRecordDetails();
+  }, [id, toast]);
+  
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not specified';
+    try {
+      return format(new Date(dateString), 'MMMM d, yyyy');
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+  
+  const getRecordTypeBadge = (type: string | null | undefined) => {
+    if (!type) return <Badge>General</Badge>;
+    
+    switch(type) {
+      case 'Vaccination':
+        return <Badge className="bg-green-500">Vaccination</Badge>;
+      case 'Health Checkup':
+        return <Badge className="bg-blue-500">Health Checkup</Badge>;
+      case 'Treatment':
+        return <Badge className="bg-purple-500">Treatment</Badge>;
+      case 'Prescription':
+        return <Badge className="bg-yellow-500">Prescription</Badge>;
+      case 'Allergy':
+        return <Badge className="bg-red-500">Allergy</Badge>;
+      case 'Diagnostic Test':
+        return <Badge className="bg-indigo-500">Diagnostic Test</Badge>;
+      default:
+        return <Badge>{type}</Badge>;
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+  
+  if (!record || !pet) {
     return (
       <Layout>
         <div className="text-center py-12">
@@ -117,8 +156,8 @@ const MedicalRecordDetails: React.FC = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <SectionHeader 
-            title={record.type} 
-            description={record.description}
+            title={record.reason_for_visit || 'Medical Record'} 
+            description={`${formatDate(record.visit_date)}`}
             buttonText="Edit Record"
             buttonIcon={<Edit className="h-4 w-4" />}
             onButtonClick={() => console.log('Edit record clicked')}
@@ -130,33 +169,36 @@ const MedicalRecordDetails: React.FC = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <Badge variant={record.status === 'Completed' ? 'secondary' : 'outline'}>
-                    {record.status}
-                  </Badge>
+                  {getRecordTypeBadge(record.type)}
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{new Date(record.date).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}</span>
+                    <span className="text-sm">{formatDate(record.visit_date)}</span>
                   </div>
                 </div>
                 
                 <div 
                   className="flex items-center gap-3 p-3 bg-accent/50 rounded-md cursor-pointer mb-4"
-                  onClick={() => navigate(`/pets/${record.pet.id}`)}
+                  onClick={() => navigate(`/pets/${pet.id}`)}
                 >
                   <div 
                     className="w-12 h-12 rounded-md bg-cover bg-center"
-                    style={{ backgroundImage: `url(${record.pet.imageUrl})` }}
-                  ></div>
+                    style={{ 
+                      backgroundImage: pet.image_url ? `url(${pet.image_url})` : 'none',
+                      backgroundColor: !pet.image_url ? '#f1f5f9' : 'transparent'
+                    }}
+                  >
+                    {!pet.image_url && (
+                      <div className="flex items-center justify-center h-full">
+                        <PawPrint className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <PawPrint className="h-4 w-4 text-primary" />
-                      <p className="font-medium">{record.pet.name}</p>
+                      <p className="font-medium">{pet.name}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{record.pet.species} · {record.pet.breed}</p>
+                    <p className="text-sm text-muted-foreground">{pet.species} · {pet.breed}</p>
                   </div>
                 </div>
                 
@@ -167,9 +209,9 @@ const MedicalRecordDetails: React.FC = () => {
                       <p className="text-sm text-muted-foreground">Owner</p>
                       <p 
                         className="text-primary hover:underline cursor-pointer"
-                        onClick={() => navigate(`/owners/${record.owner.id}`)}
+                        onClick={() => navigate(`/owners/${pet.owner_id}`)}
                       >
-                        {record.owner.name}
+                        {ownerName || 'Unknown'}
                       </p>
                     </div>
                   </div>
@@ -178,12 +220,58 @@ const MedicalRecordDetails: React.FC = () => {
                     <Stethoscope className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="text-sm text-muted-foreground">Veterinarian</p>
-                      <p>{record.veterinarian}</p>
+                      <p>{record.veterinarian || 'Not specified'}</p>
                     </div>
                   </div>
+                  
+                  {record.next_appointment && (
+                    <div className="flex items-start gap-3">
+                      <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Next Appointment</p>
+                        <p>{formatDate(record.next_appointment)}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
+            
+            {attachments.length > 0 && (
+              <Card className="mt-6">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-medium mb-4">Attachments</h3>
+                  <div className="space-y-3">
+                    {attachments.map((attachment) => (
+                      <div 
+                        key={attachment.id}
+                        className="p-3 border border-border rounded-md hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <p className="font-medium truncate max-w-[180px]">{attachment.file_name}</p>
+                          </div>
+                          <a 
+                            href={attachment.file_url} 
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                          >
+                            <Button size="sm" variant="ghost">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </a>
+                        </div>
+                        {attachment.description && (
+                          <p className="text-sm text-muted-foreground ml-6">{attachment.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
           
           <div className="md:col-span-2">
@@ -192,6 +280,13 @@ const MedicalRecordDetails: React.FC = () => {
                 <h3 className="text-lg font-medium mb-4">Medical Details</h3>
                 
                 <div className="space-y-6">
+                  {record.reason_for_visit && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Reason for Visit</h4>
+                      <p>{record.reason_for_visit}</p>
+                    </div>
+                  )}
+                  
                   {record.diagnosis && (
                     <div>
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">Diagnosis</h4>
@@ -206,10 +301,25 @@ const MedicalRecordDetails: React.FC = () => {
                     </div>
                   )}
                   
-                  {record.medications && (
+                  {record.prescriptions && record.prescriptions.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Medications</h4>
-                      <p>{record.medications}</p>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Prescriptions</h4>
+                      <ul className="list-disc pl-5">
+                        {record.prescriptions.map((prescription, index) => (
+                          <li key={index}>{prescription}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {record.vaccinations_given && record.vaccinations_given.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Vaccinations Given</h4>
+                      <ul className="list-disc pl-5">
+                        {record.vaccinations_given.map((vaccination, index) => (
+                          <li key={index}>{vaccination}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                   
