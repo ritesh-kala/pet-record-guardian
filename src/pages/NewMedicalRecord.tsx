@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { useToast } from '@/components/ui/use-toast';
@@ -38,7 +38,14 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const NewMedicalRecord: React.FC = () => {
   const navigate = useNavigate();
-  const { petId } = useParams<{ petId: string }>();
+  const { petId: paramPetId } = useParams<{ petId: string }>();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const queryPetId = queryParams.get('petId');
+  
+  // Use either the path param or query param for petId
+  const petId = paramPetId || queryPetId;
+  
   const { toast } = useToast();
 
   const [date, setDate] = useState<Date>();
@@ -63,8 +70,13 @@ const NewMedicalRecord: React.FC = () => {
 
   useEffect(() => {
     const fetchPet = async () => {
-      if (!petId) return;
+      if (!petId) {
+        console.log("No pet ID found in params or query");
+        return;
+      }
+      
       try {
+        console.log("Fetching pet with ID:", petId);
         const petData = await getPetById(petId);
         setPet(petData);
       } catch (error) {
@@ -140,7 +152,7 @@ const NewMedicalRecord: React.FC = () => {
     if (!petId) {
       toast({
         title: "Pet ID Required",
-        description: "Pet ID is missing. Please try again.",
+        description: "Pet ID is missing. Please navigate to this page from a pet's profile.",
         variant: "destructive"
       });
       return;
@@ -160,7 +172,7 @@ const NewMedicalRecord: React.FC = () => {
     try {
       // Save medical record to Supabase
       const { id: recordId } = await createMedicalRecord({
-        pet_id: petId || '',
+        pet_id: petId,
         visit_date: date ? format(date, 'yyyy-MM-dd') : '',
         reason_for_visit: medicalData.reasonForVisit || null,
         diagnosis: medicalData.diagnosis || null,

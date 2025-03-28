@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -303,7 +304,7 @@ const PetDetails: React.FC = () => {
                   <Button 
                     size="sm"
                     className="gap-1"
-                    onClick={() => navigate(`/records/new?petId=${pet.id}`)}
+                    onClick={() => navigate(`/records/new/${pet.id}`)}
                   >
                     <Plus className="h-3 w-3" />
                     Add Record

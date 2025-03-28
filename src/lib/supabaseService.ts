@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 // Types
@@ -324,7 +325,6 @@ export async function getAttachmentsByRecordId(recordId: string): Promise<Attach
     const attachment: Attachment = {
       id: item.id,
       record_id: item.record_id,
-      // Since these properties might not exist in the database, provide default values
       file_name: 'Unknown file', // Default filename
       file_url: item.file_url,
       file_type: 'application/octet-stream', // Default MIME type
