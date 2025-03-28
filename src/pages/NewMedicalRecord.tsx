@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, ArrowLeft, Upload, X, FileText } from 'lucide-react';
+import { CalendarIcon, ArrowLeft, Upload, X, FileText, ChevronDown } from 'lucide-react';
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -25,14 +25,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 import { 
   createMedicalRecord, 
   getPetById, 
+  getPets,
   Pet, 
   MedicalRecordType, 
   uploadAttachmentFile, 
-  createAttachment 
+  createAttachment, 
+  getUserOwner 
 } from '@/lib/supabaseService';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -44,7 +52,7 @@ const NewMedicalRecord: React.FC = () => {
   const queryPetId = queryParams.get('petId');
   
   // Use either the path param or query param for petId
-  const petId = paramPetId || queryPetId;
+  const initPetId = paramPetId || queryPetId;
   
   const { toast } = useToast();
 
@@ -56,6 +64,11 @@ const NewMedicalRecord: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [fileDescriptions, setFileDescriptions] = useState<{ [key: string]: string }>({});
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  
+  // New state for pets dropdown
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [selectedPetId, setSelectedPetId] = useState<string | undefined>(initPetId);
+  const [isLoadingPets, setIsLoadingPets] = useState(false);
 
   const [medicalData, setMedicalData] = useState({
     reasonForVisit: '',
@@ -68,16 +81,53 @@ const NewMedicalRecord: React.FC = () => {
     vaccinationsGiven: [] as string[]
   });
 
+  // Fetch all pets for the current user
+  useEffect(() => {
+    const fetchUserPets = async () => {
+      setIsLoadingPets(true);
+      try {
+        // Get the owner for the current user
+        const owner = await getUserOwner();
+        if (!owner) {
+          console.log("No owner found for current user");
+          setIsLoadingPets(false);
+          return;
+        }
+        
+        // Get all pets for this owner
+        const userPets = await getPets(owner.id);
+        setPets(userPets);
+        
+        // If there's only one pet, select it automatically
+        if (userPets.length === 1 && !selectedPetId) {
+          setSelectedPetId(userPets[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching user pets:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load your pets. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingPets(false);
+      }
+    };
+
+    fetchUserPets();
+  }, [toast]);
+
+  // Fetch selected pet details whenever selectedPetId changes
   useEffect(() => {
     const fetchPet = async () => {
-      if (!petId) {
-        console.log("No pet ID found in params or query");
+      if (!selectedPetId) {
+        setPet(null);
         return;
       }
       
       try {
-        console.log("Fetching pet with ID:", petId);
-        const petData = await getPetById(petId);
+        console.log("Fetching pet with ID:", selectedPetId);
+        const petData = await getPetById(selectedPetId);
         setPet(petData);
       } catch (error) {
         console.error('Error fetching pet:', error);
@@ -86,12 +136,15 @@ const NewMedicalRecord: React.FC = () => {
           description: "Failed to load pet details. Please try again.",
           variant: "destructive"
         });
-        navigate('/pets');
       }
     };
 
     fetchPet();
-  }, [petId, toast, navigate]);
+  }, [selectedPetId, toast]);
+
+  const handleSelectPet = (petId: string) => {
+    setSelectedPetId(petId);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -149,10 +202,10 @@ const NewMedicalRecord: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!petId) {
+    if (!selectedPetId) {
       toast({
-        title: "Pet ID Required",
-        description: "Pet ID is missing. Please navigate to this page from a pet's profile.",
+        title: "Pet Selection Required",
+        description: "Please select a pet for this medical record.",
         variant: "destructive"
       });
       return;
@@ -172,7 +225,7 @@ const NewMedicalRecord: React.FC = () => {
     try {
       // Save medical record to Supabase
       const { id: recordId } = await createMedicalRecord({
-        pet_id: petId,
+        pet_id: selectedPetId,
         visit_date: date ? format(date, 'yyyy-MM-dd') : '',
         reason_for_visit: medicalData.reasonForVisit || null,
         diagnosis: medicalData.diagnosis || null,
@@ -238,7 +291,7 @@ const NewMedicalRecord: React.FC = () => {
         description: "The medical record has been added successfully.",
       });
       
-      navigate(`/pets/${petId}`);
+      navigate(`/pets/${selectedPetId}`);
     } catch (error) {
       console.error('Error adding medical record:', error);
       toast({
@@ -265,11 +318,51 @@ const NewMedicalRecord: React.FC = () => {
           </Button>
           <SectionHeader 
             title="Add New Medical Record" 
-            description={`Enter medical information for ${pet?.name || 'this pet'}`}
+            description="Enter medical information for your pet"
           />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Pet Selection Dropdown */}
+          <div className="space-y-2">
+            <Label>Select Pet</Label>
+            {isLoadingPets ? (
+              <div className="h-10 w-full rounded-md border border-input bg-background flex items-center px-3">
+                <div className="animate-pulse text-sm text-muted-foreground">Loading pets...</div>
+              </div>
+            ) : pets.length > 0 ? (
+              <Select value={selectedPetId} onValueChange={handleSelectPet}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a pet" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Your Pets</SelectLabel>
+                    {pets.map(pet => (
+                      <SelectItem key={pet.id} value={pet.id || ''}>
+                        {pet.name} ({pet.species}{pet.breed ? `, ${pet.breed}` : ''})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="p-3 border rounded-md bg-muted">
+                <p className="text-sm text-muted-foreground">
+                  No pets found. Please add a pet first.
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="mt-2"
+                  onClick={() => navigate('/pets/new')}
+                >
+                  Add Pet
+                </Button>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label>Record Type</Label>
