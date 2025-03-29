@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, isSameDay, parseISO, isToday } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -98,7 +97,6 @@ const CalendarView: React.FC = () => {
         setMedicalRecords(medicalRecordsData);
         setPets(petsData);
         
-        // Create day metadata
         const metadata = new Map<string, DayMetadata>();
         
         appointmentsData.forEach(appointment => {
@@ -171,10 +169,8 @@ const CalendarView: React.FC = () => {
     try {
       await deleteAppointment(deleteAppointmentId);
       
-      // Update local state
       setAppointments(appointments.filter(a => a.id !== deleteAppointmentId));
       
-      // If we're in the day view dialog, update the selected day's appointments as well
       if (selectedDay) {
         setSelectedDay({
           ...selectedDay,
@@ -182,7 +178,6 @@ const CalendarView: React.FC = () => {
         });
       }
 
-      // Update the day metadata
       const updatedMetadata = new Map(dayMetadata);
       for (const [key, value] of updatedMetadata.entries()) {
         value.appointments = value.appointments.filter(a => a.id !== deleteAppointmentId);
@@ -243,7 +238,6 @@ const CalendarView: React.FC = () => {
     }
   };
 
-  // Filter appointments based on view mode
   const filteredAppointments = appointments.filter(appointment => {
     const appointmentDate = new Date(appointment.date);
     const today = new Date();
@@ -256,7 +250,9 @@ const CalendarView: React.FC = () => {
     }
     
     return true; // 'all' view
-  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }).sort((a, b) => {
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 
   return (
     <Layout>
@@ -265,7 +261,7 @@ const CalendarView: React.FC = () => {
           title="Calendar" 
           description="View and manage appointments and medical records" 
           buttonText="Back"
-          buttonLink="/medical-records"
+          buttonLink="/records"
         />
         
         {isLoading ? (
@@ -304,7 +300,7 @@ const CalendarView: React.FC = () => {
                   }}
                   modifiersStyles={{
                     hasEvent: {
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue background
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
                       fontWeight: 'bold'
                     },
                     today: {
