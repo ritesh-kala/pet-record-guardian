@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, parseISO, isToday } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
@@ -18,18 +19,44 @@ import {
   DialogDescription, 
   DialogHeader, 
   DialogTitle,
-  DialogTrigger 
+  DialogTrigger,
+  DialogFooter
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { 
   getAppointments, 
   Appointment, 
   getMedicalRecords, 
-  MedicalRecord 
+  MedicalRecord,
+  deleteAppointment,
+  getPets,
+  Pet
 } from '@/lib/supabaseService';
-import { Loader2, CalendarClock, FilePlus, PenSquare, Calendar as CalendarIcon } from 'lucide-react';
+import { 
+  Loader2, 
+  CalendarClock, 
+  FilePlus, 
+  PenSquare, 
+  Calendar as CalendarIcon, 
+  Trash2,
+  X,
+  RotateCcw,
+  Check
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 
 interface DayMetadata {
@@ -45,9 +72,13 @@ const CalendarView: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [pets, setPets] = useState<Pet[]>([]);
   const [dayMetadata, setDayMetadata] = useState<Map<string, DayMetadata>>(new Map());
   const [selectedDay, setSelectedDay] = useState<DayMetadata | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [deleteAppointmentId, setDeleteAppointmentId] = useState<string | null>(null);
+  const [petFilter, setPetFilter] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'upcoming' | 'all' | 'past'>('upcoming');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,13 +88,15 @@ const CalendarView: React.FC = () => {
         const startDate = format(startOfMonth(date), 'yyyy-MM-dd');
         const endDate = format(endOfMonth(date), 'yyyy-MM-dd');
         
-        const [appointmentsData, medicalRecordsData] = await Promise.all([
-          getAppointments(undefined, startDate, endDate),
-          getMedicalRecords()
+        const [appointmentsData, medicalRecordsData, petsData] = await Promise.all([
+          getAppointments(petFilter || undefined),
+          getMedicalRecords(),
+          getPets()
         ]);
         
         setAppointments(appointmentsData);
         setMedicalRecords(medicalRecordsData);
+        setPets(petsData);
         
         // Create day metadata
         const metadata = new Map<string, DayMetadata>();
@@ -106,7 +139,7 @@ const CalendarView: React.FC = () => {
     };
     
     fetchData();
-  }, [date, toast]);
+  }, [date, toast, petFilter]);
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (!selectedDate) return;
@@ -132,12 +165,105 @@ const CalendarView: React.FC = () => {
     return dayMetadata.get(dateKey);
   };
 
+  const handleDeleteAppointment = async () => {
+    if (!deleteAppointmentId) return;
+
+    try {
+      await deleteAppointment(deleteAppointmentId);
+      
+      // Update local state
+      setAppointments(appointments.filter(a => a.id !== deleteAppointmentId));
+      
+      // If we're in the day view dialog, update the selected day's appointments as well
+      if (selectedDay) {
+        setSelectedDay({
+          ...selectedDay,
+          appointments: selectedDay.appointments.filter(a => a.id !== deleteAppointmentId)
+        });
+      }
+
+      // Update the day metadata
+      const updatedMetadata = new Map(dayMetadata);
+      for (const [key, value] of updatedMetadata.entries()) {
+        value.appointments = value.appointments.filter(a => a.id !== deleteAppointmentId);
+        updatedMetadata.set(key, value);
+      }
+      setDayMetadata(updatedMetadata);
+
+      toast({
+        title: 'Appointment deleted',
+        description: 'The appointment has been successfully deleted.'
+      });
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete the appointment.',
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleteAppointmentId(null);
+    }
+  };
+
+  const handleScheduleNewAppointment = (petId: string | undefined, date: Date | undefined) => {
+    if (!petId && pets.length > 0) {
+      petId = pets[0].id;
+    }
+    
+    if (!petId) {
+      toast({
+        title: 'No pets found',
+        description: 'Please add a pet before scheduling appointments.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    let path = `/appointments/new?petId=${petId}`;
+    if (date) {
+      path += `&date=${format(date, 'yyyy-MM-dd')}`;
+    }
+    
+    setIsDialogOpen(false);
+    navigate(path);
+  };
+
+  const getPetName = (petId: string) => {
+    const pet = pets.find(p => p.id === petId);
+    return pet ? pet.name : 'Unknown Pet';
+  };
+
+  const getBadgeVariant = (status: string | undefined) => {
+    switch (status) {
+      case 'completed': return 'secondary';
+      case 'canceled': return 'destructive';
+      case 'missed': return 'default';
+      default: return 'outline';
+    }
+  };
+
+  // Filter appointments based on view mode
+  const filteredAppointments = appointments.filter(appointment => {
+    const appointmentDate = new Date(appointment.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (viewMode === 'upcoming') {
+      return appointmentDate >= today && appointment.status === 'scheduled';
+    } else if (viewMode === 'past') {
+      return appointmentDate < today || appointment.status === 'completed' || appointment.status === 'canceled' || appointment.status === 'missed';
+    }
+    
+    return true; // 'all' view
+  }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   return (
     <Layout>
       <div className="space-y-6">
         <SectionHeader 
           title="Calendar" 
-          description="View appointments and medical records" 
+          description="View and manage appointments and medical records" 
           buttonText="Back"
           buttonLink="/medical-records"
         />
@@ -152,7 +278,7 @@ const CalendarView: React.FC = () => {
               <CardHeader>
                 <CardTitle>Calendar</CardTitle>
                 <CardDescription>
-                  Click on a date to view details
+                  Click on a date to view details or schedule appointments
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -173,12 +299,17 @@ const CalendarView: React.FC = () => {
                         metadata.appointments.length > 0 || 
                         metadata.medicalRecords.length > 0
                       );
-                    }
+                    },
+                    today: (date) => isToday(date)
                   }}
                   modifiersStyles={{
                     hasEvent: {
                       backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue background
                       fontWeight: 'bold'
+                    },
+                    today: {
+                      border: '1px solid currentColor',
+                      borderRadius: '100%'
                     }
                   }}
                   components={{
@@ -220,51 +351,154 @@ const CalendarView: React.FC = () => {
             
             <Card>
               <CardHeader>
-                <CardTitle>Upcoming Appointments</CardTitle>
-                <CardDescription>
-                  Next 10 scheduled appointments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {appointments.filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date())
-                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                  .slice(0, 10)
-                  .map(appointment => (
-                    <div
-                      key={appointment.id}
-                      className="mb-4 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                      onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                <div className="flex justify-between items-center">
+                  <CardTitle>Appointments</CardTitle>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleScheduleNewAppointment(undefined, undefined)}
                     >
-                      <div className="flex justify-between items-start mb-1">
-                        <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
-                        <Badge variant={
-                          appointment.status === 'scheduled' ? 'outline' :
-                          appointment.status === 'completed' ? 'secondary' :
-                          appointment.status === 'canceled' ? 'destructive' : 'default'
-                        }>
-                          {appointment.status}
-                        </Badge>
+                      <FilePlus className="h-4 w-4 mr-1" />
+                      New
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === 'upcoming' ? 'default' : 'outline'} 
+                      onClick={() => setViewMode('upcoming')}
+                      className="whitespace-nowrap"
+                    >
+                      Upcoming
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === 'past' ? 'default' : 'outline'} 
+                      onClick={() => setViewMode('past')}
+                      className="whitespace-nowrap"
+                    >
+                      Past
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={viewMode === 'all' ? 'default' : 'outline'} 
+                      onClick={() => setViewMode('all')}
+                      className="whitespace-nowrap"
+                    >
+                      All
+                    </Button>
+                  </div>
+                </div>
+                {pets.length > 1 && (
+                  <Select value={petFilter} onValueChange={setPetFilter}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Filter by pet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All pets</SelectItem>
+                      {pets.map(pet => (
+                        <SelectItem key={pet.id} value={pet.id || ''}>
+                          {pet.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </CardHeader>
+              <CardContent className="max-h-[500px] overflow-y-auto pr-1">
+                {filteredAppointments.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredAppointments.map(appointment => (
+                      <div
+                        key={appointment.id}
+                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-all"
+                        onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
+                          <Badge variant={getBadgeVariant(appointment.status)}>
+                            {appointment.status || 'scheduled'}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground flex items-center">
+                          <CalendarIcon className="mr-1 h-3 w-3" />
+                          {format(new Date(appointment.date), 'PPP')}
+                          {appointment.time && ` at ${appointment.time}`}
+                        </div>
+                        <div className="text-sm mt-1">
+                          {getPetName(appointment.pet_id)}
+                          {appointment.is_recurring && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              Recurring
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex justify-end gap-2 mt-2">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteAppointmentId(appointment.id);
+                            }}>
+                              <Button variant="ghost" size="sm" className="h-7 px-2">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this appointment? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={() => setDeleteAppointmentId(null)}>
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction onClick={(e) => {
+                                  e.preventDefault();
+                                  handleDeleteAppointment();
+                                }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/appointments/${appointment.id}/edit`);
+                            }}
+                          >
+                            <PenSquare className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground flex items-center">
-                        <CalendarIcon className="mr-1 h-3 w-3" />
-                        {format(new Date(appointment.date), 'PPP')}
-                        {appointment.time && ` at ${appointment.time}`}
-                      </div>
-                    </div>
-                  ))}
-                {appointments.filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date()).length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
                     <CalendarClock className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                    <p>No upcoming appointments</p>
+                    <p className="text-muted-foreground">
+                      {viewMode === 'upcoming' ? "No upcoming appointments" : 
+                        viewMode === 'past' ? "No past appointments" : "No appointments found"}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => handleScheduleNewAppointment(undefined, undefined)}
+                    >
+                      Schedule New Appointment
+                    </Button>
                   </div>
                 )}
               </CardContent>
-              <CardFooter>
-                <Button className="w-full" onClick={() => navigate('/pets')}>
-                  <FilePlus className="mr-2 h-4 w-4" />
-                  Schedule New Appointment
-                </Button>
-              </CardFooter>
             </Card>
           </div>
         )}
@@ -295,7 +529,13 @@ const CalendarView: React.FC = () => {
                 <TabsContent value="all" className="space-y-4 max-h-96 overflow-y-auto">
                   {selectedDay.appointments.length === 0 && selectedDay.medicalRecords.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground">No events on this day</p>
+                      <p className="text-muted-foreground mb-4">No events on this day</p>
+                      <Button 
+                        onClick={() => handleScheduleNewAppointment(undefined, selectedDay.date)}
+                      >
+                        <FilePlus className="mr-2 h-4 w-4" />
+                        Schedule Appointment
+                      </Button>
                     </div>
                   ) : (
                     <>
@@ -313,17 +553,16 @@ const CalendarView: React.FC = () => {
                             >
                               <div className="flex justify-between items-start mb-1">
                                 <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
-                                <Badge variant={
-                                  appointment.status === 'scheduled' ? 'outline' :
-                                  appointment.status === 'completed' ? 'secondary' :
-                                  appointment.status === 'canceled' ? 'destructive' : 'default'
-                                }>
-                                  {appointment.status}
+                                <Badge variant={getBadgeVariant(appointment.status)}>
+                                  {appointment.status || 'scheduled'}
                                 </Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                <span className="font-medium">Pet:</span> {getPetName(appointment.pet_id)}
                               </div>
                               {appointment.time && (
                                 <div className="text-sm text-muted-foreground">
-                                  Time: {appointment.time}
+                                  <span className="font-medium">Time:</span> {appointment.time}
                                 </div>
                               )}
                               {appointment.notes && (
@@ -331,7 +570,45 @@ const CalendarView: React.FC = () => {
                                   {appointment.notes}
                                 </div>
                               )}
-                              <div className="flex justify-end mt-2">
+                              {appointment.is_recurring && (
+                                <div className="mt-1">
+                                  <Badge variant="outline">
+                                    Recurring: {appointment.recurrence_pattern || 'custom'}
+                                  </Badge>
+                                </div>
+                              )}
+                              <div className="flex justify-end gap-2 mt-2">
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteAppointmentId(appointment.id);
+                                  }}>
+                                    <Button variant="ghost" size="sm" className="h-8">
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Delete
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this appointment? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel onClick={() => setDeleteAppointmentId(null)}>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction onClick={(e) => {
+                                        e.preventDefault();
+                                        handleDeleteAppointment();
+                                      }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                                
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
@@ -347,6 +624,16 @@ const CalendarView: React.FC = () => {
                               </div>
                             </div>
                           ))}
+                          <div className="flex justify-center mt-4">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleScheduleNewAppointment(undefined, selectedDay.date)}
+                            >
+                              <FilePlus className="h-4 w-4 mr-1" />
+                              Add Appointment
+                            </Button>
+                          </div>
                         </div>
                       )}
                       
@@ -366,9 +653,12 @@ const CalendarView: React.FC = () => {
                                 <h4 className="font-medium">{record.reason_for_visit || 'Medical Visit'}</h4>
                                 {record.type && <Badge>{record.type}</Badge>}
                               </div>
+                              <div className="text-sm text-muted-foreground">
+                                <span className="font-medium">Pet:</span> {getPetName(record.pet_id)}
+                              </div>
                               {record.veterinarian && (
                                 <div className="text-sm text-muted-foreground">
-                                  Vet: {record.veterinarian}
+                                  <span className="font-medium">Vet:</span> {record.veterinarian}
                                 </div>
                               )}
                               {record.diagnosis && (
@@ -401,54 +691,106 @@ const CalendarView: React.FC = () => {
                 <TabsContent value="appointments" className="space-y-4 max-h-96 overflow-y-auto">
                   {selectedDay.appointments.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-muted-foreground">No appointments on this day</p>
+                      <p className="text-muted-foreground mb-4">No appointments on this day</p>
+                      <Button onClick={() => handleScheduleNewAppointment(undefined, selectedDay.date)}>
+                        <FilePlus className="mr-2 h-4 w-4" />
+                        Schedule Appointment
+                      </Button>
                     </div>
                   ) : (
-                    selectedDay.appointments.map(appointment => (
-                      <div
-                        key={appointment.id}
-                        className="mb-4 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                        onClick={() => {
-                          setIsDialogOpen(false);
-                          navigate(`/appointments/${appointment.id}/edit`);
-                        }}
-                      >
-                        <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
-                          <Badge variant={
-                            appointment.status === 'scheduled' ? 'outline' :
-                            appointment.status === 'completed' ? 'secondary' :
-                            appointment.status === 'canceled' ? 'destructive' : 'default'
-                          }>
-                            {appointment.status}
-                          </Badge>
-                        </div>
-                        {appointment.time && (
+                    <div className="space-y-4">
+                      {selectedDay.appointments.map(appointment => (
+                        <div
+                          key={appointment.id}
+                          className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                          onClick={() => {
+                            setIsDialogOpen(false);
+                            navigate(`/appointments/${appointment.id}/edit`);
+                          }}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
+                            <Badge variant={getBadgeVariant(appointment.status)}>
+                              {appointment.status || 'scheduled'}
+                            </Badge>
+                          </div>
                           <div className="text-sm text-muted-foreground">
-                            Time: {appointment.time}
+                            <span className="font-medium">Pet:</span> {getPetName(appointment.pet_id)}
                           </div>
-                        )}
-                        {appointment.notes && (
-                          <div className="text-sm mt-1">
-                            {appointment.notes}
+                          {appointment.time && (
+                            <div className="text-sm text-muted-foreground">
+                              <span className="font-medium">Time:</span> {appointment.time}
+                            </div>
+                          )}
+                          {appointment.notes && (
+                            <div className="text-sm mt-1">
+                              {appointment.notes}
+                            </div>
+                          )}
+                          {appointment.is_recurring && (
+                            <div className="mt-1">
+                              <Badge variant="outline">
+                                Recurring: {appointment.recurrence_pattern || 'custom'}
+                              </Badge>
+                            </div>
+                          )}
+                          <div className="flex justify-end gap-2 mt-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsDialogOpen(false);
+                                navigate(`/appointments/${appointment.id}/edit`);
+                              }}
+                            >
+                              <PenSquare className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteAppointmentId(appointment.id);
+                              }}>
+                                <Button variant="ghost" size="sm">
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this appointment? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={() => setDeleteAppointmentId(null)}>
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction onClick={(e) => {
+                                    e.preventDefault();
+                                    handleDeleteAppointment();
+                                  }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
-                        )}
-                        <div className="flex justify-end mt-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsDialogOpen(false);
-                              navigate(`/appointments/${appointment.id}/edit`);
-                            }}
-                          >
-                            <PenSquare className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
                         </div>
+                      ))}
+                      <div className="flex justify-center">
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleScheduleNewAppointment(undefined, selectedDay.date)}
+                        >
+                          <FilePlus className="mr-2 h-4 w-4" />
+                          Add Appointment
+                        </Button>
                       </div>
-                    ))
+                    </div>
                   )}
                 </TabsContent>
                 
@@ -471,9 +813,12 @@ const CalendarView: React.FC = () => {
                           <h4 className="font-medium">{record.reason_for_visit || 'Medical Visit'}</h4>
                           {record.type && <Badge>{record.type}</Badge>}
                         </div>
+                        <div className="text-sm text-muted-foreground">
+                          <span className="font-medium">Pet:</span> {getPetName(record.pet_id)}
+                        </div>
                         {record.veterinarian && (
                           <div className="text-sm text-muted-foreground">
-                            Vet: {record.veterinarian}
+                            <span className="font-medium">Vet:</span> {record.veterinarian}
                           </div>
                         )}
                         {record.diagnosis && (
@@ -501,6 +846,22 @@ const CalendarView: React.FC = () => {
                 </TabsContent>
               </Tabs>
             )}
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)}
+              >
+                Close
+              </Button>
+              {selectedDay && (
+                <Button 
+                  onClick={() => handleScheduleNewAppointment(undefined, selectedDay.date)}
+                >
+                  <FilePlus className="mr-2 h-4 w-4" />
+                  Schedule Appointment
+                </Button>
+              )}
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

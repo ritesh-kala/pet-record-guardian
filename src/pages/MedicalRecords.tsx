@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -9,8 +10,9 @@ import { Search, Calendar, Loader2, FilePlus, Filter } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { getMedicalRecords, getAppointments, getPets, MedicalRecord, Appointment, Pet } from '@/lib/supabaseService';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 const MedicalRecords: React.FC = () => {
   const navigate = useNavigate();
@@ -91,6 +93,27 @@ const MedicalRecords: React.FC = () => {
     setPetFilter(value);
   };
 
+  // Sort appointments from newest to oldest (upcoming first)
+  const sortedUpcomingAppointments = appointments
+    .filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Badge variants based on appointment status
+  const getAppointmentBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'outline';
+      case 'completed': return 'secondary';
+      case 'canceled': return 'destructive';
+      case 'missed': return 'default';
+      default: return 'outline';
+    }
+  };
+
+  // Format date with time if available
+  const formatAppointmentDateTime = (date: string, time?: string | null) => {
+    return `${format(new Date(date), 'PPP')}${time ? ` at ${time}` : ''}`;
+  };
+
   return (
     <Layout>
       <div className="space-y-8">
@@ -157,7 +180,7 @@ const MedicalRecords: React.FC = () => {
                 {filteredRecords.map(record => (
                   <MedicalRecordCard 
                     key={record.id}
-                    recordId={record.id}
+                    recordId={record.id!}
                     petId={record.pet_id}
                     petName={getPetName(record.pet_id)}
                     date={format(new Date(record.visit_date), 'PPP')}
@@ -193,7 +216,7 @@ const MedicalRecords: React.FC = () => {
                 {filteredRecords.map(record => (
                   <MedicalRecordCard 
                     key={record.id}
-                    recordId={record.id}
+                    recordId={record.id!}
                     petId={record.pet_id}
                     petName={getPetName(record.pet_id)}
                     date={format(new Date(record.visit_date), 'PPP')}
@@ -221,46 +244,60 @@ const MedicalRecords: React.FC = () => {
         </Tabs>
         
         <div className="mt-8 border-t pt-8">
-          <h2 className="text-2xl font-bold mb-4">Upcoming Appointments</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Upcoming Appointments</h2>
+            <Button onClick={() => navigate('/calendar')} variant="outline">
+              <Calendar className="h-4 w-4 mr-2" />
+              View All
+            </Button>
+          </div>
+          
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : appointments.filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date()).length > 0 ? (
+          ) : sortedUpcomingAppointments.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {appointments
-                .filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date())
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                .slice(0, 6)
-                .map(appointment => (
-                  <div
-                    key={appointment.id}
-                    className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                  >
-                    <div className="mb-2">
+              {sortedUpcomingAppointments.slice(0, 6).map(appointment => (
+                <div
+                  key={appointment.id}
+                  className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                >
+                  <div className="mb-2">
+                    <div className="flex justify-between items-start">
                       <h3 className="font-medium">{appointment.reason || 'Appointment'}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Pet: {getPetName(appointment.pet_id)}
-                      </p>
+                      <Badge variant={getAppointmentBadgeVariant(appointment.status || 'scheduled')}>
+                        {appointment.status || 'scheduled'}
+                      </Badge>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span>
-                        {format(new Date(appointment.date), 'PPP')}
-                        {appointment.time && ` at ${appointment.time}`}
-                      </span>
+                    <p className="text-sm text-muted-foreground">
+                      Pet: {getPetName(appointment.pet_id)}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="flex items-center">
+                      <Calendar className="h-3 w-3 mr-1 inline" />
+                      {formatAppointmentDateTime(appointment.date, appointment.time)}
+                    </span>
+                    <div className="flex gap-2">
                       <Button variant="ghost" size="sm">
                         View
                       </Button>
                     </div>
                   </div>
-                ))
-              }
+                  {appointment.is_recurring && (
+                    <Badge variant="outline" className="mt-2">
+                      Recurring: {appointment.recurrence_pattern || 'custom'}
+                    </Badge>
+                  )}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-8 border rounded-lg bg-muted/20">
-              <p className="text-muted-foreground">No upcoming appointments scheduled</p>
-              <Button variant="outline" className="mt-4" onClick={() => navigate('/pets')}>
+              <p className="text-muted-foreground mb-4">No upcoming appointments scheduled</p>
+              <Button onClick={() => navigate('/pets')}>
                 Schedule an Appointment
               </Button>
             </div>
