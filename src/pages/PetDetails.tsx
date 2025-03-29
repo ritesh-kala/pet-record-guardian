@@ -1,52 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Calendar, 
-  PawPrint, 
-  Heart, 
-  Info, 
-  Edit, 
-  Plus, 
-  FileText, 
-  Clock,
-  Loader2,
-  Trash
-} from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import SectionHeader from '@/components/ui-components/SectionHeader';
 import { format } from 'date-fns';
-import { 
-  getPetById, 
-  getMedicalRecords, 
-  getAppointments, 
-  getOwnerById, 
-  deleteAppointment 
-} from '@/lib/supabaseService';
+import { CalendarClock, Clock, Edit, FileText, Loader2, MoreVertical, Plus, PlusCircle, Trash2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getPetById, getMedicalRecords, getAppointments, deleteAppointment, Appointment } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 const PetDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -116,6 +84,29 @@ const PetDetails: React.FC = () => {
         variant: 'destructive',
       });
     }
+  };
+  
+  const getStatusBadge = (status: string) => {
+    let variant: "default" | "destructive" | "outline" | "secondary" = "default";
+    
+    switch (status) {
+      case 'scheduled':
+        variant = 'outline';
+        break;
+      case 'completed':
+        variant = 'secondary';
+        break;
+      case 'canceled':
+        variant = 'destructive';
+        break;
+      case 'missed':
+        variant = 'default';
+        break;
+      default:
+        variant = 'default';
+    }
+    
+    return <Badge variant={variant}>{status}</Badge>;
   };
   
   if (isLoading) {

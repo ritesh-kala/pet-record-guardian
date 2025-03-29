@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -240,8 +239,8 @@ const CalendarView: React.FC = () => {
                         <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
                         <Badge variant={
                           appointment.status === 'scheduled' ? 'outline' :
-                          appointment.status === 'completed' ? 'success' :
-                          appointment.status === 'canceled' ? 'destructive' : 'secondary'
+                          appointment.status === 'completed' ? 'secondary' :
+                          appointment.status === 'canceled' ? 'destructive' : 'default'
                         }>
                           {appointment.status}
                         </Badge>
@@ -316,8 +315,8 @@ const CalendarView: React.FC = () => {
                                 <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
                                 <Badge variant={
                                   appointment.status === 'scheduled' ? 'outline' :
-                                  appointment.status === 'completed' ? 'success' :
-                                  appointment.status === 'canceled' ? 'destructive' : 'secondary'
+                                  appointment.status === 'completed' ? 'secondary' :
+                                  appointment.status === 'canceled' ? 'destructive' : 'default'
                                 }>
                                   {appointment.status}
                                 </Badge>
@@ -418,8 +417,8 @@ const CalendarView: React.FC = () => {
                           <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
                           <Badge variant={
                             appointment.status === 'scheduled' ? 'outline' :
-                            appointment.status === 'completed' ? 'success' :
-                            appointment.status === 'canceled' ? 'destructive' : 'secondary'
+                            appointment.status === 'completed' ? 'secondary' :
+                            appointment.status === 'canceled' ? 'destructive' : 'default'
                           }>
                             {appointment.status}
                           </Badge>

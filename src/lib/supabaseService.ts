@@ -109,7 +109,7 @@ export class Timestamp {
   }
 }
 
-// Converting Timestamp to string for Supabase and vice versa
+// Convert functions
 function timestampToISOString(timestamp: Timestamp | string): string {
   if (typeof timestamp === 'string') {
     return timestamp;
@@ -168,7 +168,6 @@ export async function getUserOwner(): Promise<Owner | null> {
 }
 
 export async function createOwner(owner: Owner): Promise<{ id: string }> {
-  // Get the current user ID if not provided
   if (!owner.user_id) {
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session) {
@@ -257,7 +256,6 @@ export async function getPetById(id: string): Promise<Pet> {
 }
 
 export async function createPet(pet: Pet): Promise<{ id: string }> {
-  // Map our interface to database fields
   const petData = {
     name: pet.name,
     species: pet.species,
@@ -293,7 +291,6 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
 }
 
 export async function updatePet(id: string, pet: Partial<Pet>): Promise<void> {
-  // Map our interface to database fields
   const petData = {
     name: pet.name,
     species: pet.species,
@@ -309,7 +306,6 @@ export async function updatePet(id: string, pet: Partial<Pet>): Promise<void> {
     updated_at: new Date().toISOString()
   };
 
-  // Remove undefined fields
   Object.keys(petData).forEach(key => {
     if (petData[key as keyof typeof petData] === undefined) {
       delete petData[key as keyof typeof petData];
@@ -357,7 +353,6 @@ export async function getMedicalRecordById(id: string): Promise<MedicalRecord> {
 }
 
 export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: string }> {
-  // Map our interface to database fields
   const recordData = {
     pet_id: record.pet_id,
     visit_date: record.visit_date,
@@ -391,7 +386,6 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
 }
 
 export async function updateMedicalRecord(id: string, record: Partial<MedicalRecord>): Promise<void> {
-  // Map our interface to database fields
   const recordData = {
     visit_date: record.visit_date,
     reason_for_visit: record.reason_for_visit,
@@ -406,7 +400,6 @@ export async function updateMedicalRecord(id: string, record: Partial<MedicalRec
     record_type: record.type
   };
 
-  // Remove undefined fields
   Object.keys(recordData).forEach(key => {
     if (recordData[key as keyof typeof recordData] === undefined) {
       delete recordData[key as keyof typeof recordData];
@@ -445,7 +438,22 @@ export async function getAppointments(petId?: string, startDate?: string, endDat
   const { data, error } = await query;
   if (error) throw error;
   
-  return data || [];
+  const appointments: Appointment[] = data?.map(item => ({
+    id: item.id,
+    pet_id: item.pet_id || '',
+    date: item.date,
+    time: item.time,
+    reason: item.reason,
+    notes: item.notes,
+    is_recurring: item.is_recurring || false,
+    recurrence_pattern: item.recurrence_pattern as 'daily' | 'weekly' | 'monthly' | 'yearly' | null,
+    recurrence_end_date: item.recurrence_end_date,
+    status: item.status as 'scheduled' | 'completed' | 'canceled' | 'missed',
+    created_at: item.created_at,
+    updated_at: item.updated_at
+  })) || [];
+  
+  return appointments;
 }
 
 export async function getAppointmentById(id: string): Promise<Appointment> {
@@ -503,7 +511,6 @@ export async function updateAppointment(id: string, appointment: Partial<Appoint
     updated_at: new Date().toISOString()
   };
 
-  // Remove undefined fields
   Object.keys(appointmentData).forEach(key => {
     if (appointmentData[key as keyof typeof appointmentData] === undefined) {
       delete appointmentData[key as keyof typeof appointmentData];
@@ -542,15 +549,13 @@ export async function getAttachmentsByRecordId(recordId: string): Promise<Attach
 
   if (error) throw error;
   
-  // Transform the data to ensure it conforms to the Attachment interface
   const attachments: Attachment[] = data?.map(item => {
-    // Create an object that matches our Attachment interface
     const attachment: Attachment = {
       id: item.id,
       record_id: item.record_id,
-      file_name: 'Unknown file', // Default filename
+      file_name: 'Unknown file',
       file_url: item.file_url,
-      file_type: 'application/octet-stream', // Default MIME type
+      file_type: 'application/octet-stream',
       file_size: null,
       description: item.description,
       uploaded_at: item.created_at
@@ -591,19 +596,16 @@ export async function deleteAttachment(id: string): Promise<void> {
 }
 
 export async function uploadAttachmentFile(file: File, recordId: string): Promise<string> {
-  // Create a unique filename
   const fileExt = file.name.split('.').pop();
   const fileName = `${recordId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
   const filePath = `${fileName}`;
 
-  // Upload the file to Supabase Storage
   const { error: uploadError, data } = await supabase.storage
     .from('medical_attachments')
     .upload(filePath, file);
 
   if (uploadError) throw uploadError;
 
-  // Get the public URL
   const { data: publicUrlData } = supabase.storage
     .from('medical_attachments')
     .getPublicUrl(filePath);

@@ -162,7 +162,7 @@ const MedicalRecords: React.FC = () => {
                 {filteredRecords.map(record => (
                   <MedicalRecordCard 
                     key={record.id}
-                    id={record.id || ''}
+                    recordId={record.id || ''}
                     petId={record.pet_id}
                     petName={getPetName(record.pet_id)}
                     date={format(new Date(record.visit_date), 'PPP')}
@@ -197,7 +197,7 @@ const MedicalRecords: React.FC = () => {
                 {filteredRecords.map(record => (
                   <MedicalRecordCard 
                     key={record.id}
-                    id={record.id || ''}
+                    recordId={record.id || ''}
                     petId={record.pet_id}
                     petName={getPetName(record.pet_id)}
                     date={format(new Date(record.visit_date), 'PPP')}
