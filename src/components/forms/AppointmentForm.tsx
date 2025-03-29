@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, addDays, addWeeks, addMonths, addYears, isAfter } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Save, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Save, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
