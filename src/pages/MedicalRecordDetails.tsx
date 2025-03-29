@@ -15,7 +15,11 @@ import {
   User, 
   FileText,
   Download,
-  Loader2
+  Loader2,
+  Image as ImageIcon,
+  FileImage,
+  File,
+  FilePdf
 } from 'lucide-react';
 import { 
   getMedicalRecordById, 
@@ -28,6 +32,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const MedicalRecordDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +44,7 @@ const MedicalRecordDetails: React.FC = () => {
   const [ownerName, setOwnerName] = useState<string>('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
   
   useEffect(() => {
     const fetchRecordDetails = async () => {
@@ -117,6 +123,22 @@ const MedicalRecordDetails: React.FC = () => {
       default:
         return <Badge>{type}</Badge>;
     }
+  };
+
+  const getAttachmentIcon = (fileType: string) => {
+    const type = fileType.toLowerCase();
+    
+    if (type.includes('image')) {
+      return <FileImage className="h-5 w-5 text-blue-500" />;
+    } else if (type.includes('pdf')) {
+      return <FilePdf className="h-5 w-5 text-red-500" />;
+    } else {
+      return <File className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const isImageFile = (fileType: string) => {
+    return fileType.toLowerCase().includes('image');
   };
   
   if (isLoading) {
@@ -237,19 +259,20 @@ const MedicalRecordDetails: React.FC = () => {
               </CardContent>
             </Card>
             
-            {attachments.length > 0 && (
-              <Card className="mt-6">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-medium mb-4">Attachments</h3>
+            <Card className="mt-6">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium mb-4">Attachments</h3>
+                {attachments.length > 0 ? (
                   <div className="space-y-3">
                     {attachments.map((attachment) => (
                       <div 
                         key={attachment.id}
-                        className="p-3 border border-border rounded-md hover:bg-accent/50 transition-colors"
+                        className="p-3 border border-border rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedAttachment(attachment)}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            {getAttachmentIcon(attachment.file_type)}
                             <p className="font-medium truncate max-w-[180px]">{attachment.file_name}</p>
                           </div>
                           <a 
@@ -257,6 +280,7 @@ const MedicalRecordDetails: React.FC = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                             download
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Button size="sm" variant="ghost">
                               <Download className="h-4 w-4" />
@@ -269,9 +293,14 @@ const MedicalRecordDetails: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                    <p>No attachments</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
           
           <div className="md:col-span-2">
@@ -332,9 +361,80 @@ const MedicalRecordDetails: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {attachments.length > 0 && (
+              <Card className="mt-6">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-medium mb-4">Attachment Gallery</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {attachments.map((attachment) => (
+                      isImageFile(attachment.file_type) ? (
+                        <div 
+                          key={attachment.id}
+                          className="aspect-square rounded-md overflow-hidden border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedAttachment(attachment)}
+                        >
+                          <img
+                            src={attachment.file_url}
+                            alt={attachment.file_name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div 
+                          key={attachment.id}
+                          className="aspect-square rounded-md overflow-hidden border border-border bg-accent/30 flex flex-col items-center justify-center cursor-pointer hover:bg-accent/50 transition-colors"
+                          onClick={() => setSelectedAttachment(attachment)}
+                        >
+                          {getAttachmentIcon(attachment.file_type)}
+                          <p className="text-xs text-center mt-2 px-2 truncate w-full">{attachment.file_name}</p>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Attachment Viewer Dialog */}
+      <Dialog 
+        open={selectedAttachment !== null} 
+        onOpenChange={(open) => !open && setSelectedAttachment(null)}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{selectedAttachment?.file_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 flex justify-center items-center">
+            {selectedAttachment && isImageFile(selectedAttachment.file_type) ? (
+              <img
+                src={selectedAttachment.file_url}
+                alt={selectedAttachment.file_name}
+                className="max-h-[70vh] max-w-full rounded-md"
+              />
+            ) : (
+              <div className="p-10 text-center">
+                {selectedAttachment && getAttachmentIcon(selectedAttachment.file_type)}
+                <p className="mt-2">{selectedAttachment?.file_name}</p>
+                <a 
+                  href={selectedAttachment?.file_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  download
+                  className="mt-4 inline-block"
+                >
+                  <Button>
+                    <Download className="mr-2 h-4 w-4" /> Download
+                  </Button>
+                </a>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

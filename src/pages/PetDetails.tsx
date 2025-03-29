@@ -16,10 +16,11 @@ import {
   Plus, 
   Loader2,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  FileText
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { getPetById, getMedicalRecords, MedicalRecord, Pet } from '@/lib/supabaseService';
+import { getPetById, getMedicalRecords, getAttachmentsByRecordId, MedicalRecord, Pet } from '@/lib/supabaseService';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -32,6 +33,7 @@ const PetDetails: React.FC = () => {
   
   const [pet, setPet] = useState<Pet | null>(null);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [recordsWithAttachments, setRecordsWithAttachments] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [ownerName, setOwnerName] = useState<string>('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -57,8 +59,20 @@ const PetDetails: React.FC = () => {
           }
         }
 
+        // Fetch medical records for this specific pet
         const records = await getMedicalRecords(id);
         setMedicalRecords(records);
+        
+        // Check which records have attachments
+        const attachmentsMapping: Record<string, boolean> = {};
+        await Promise.all(records.map(async (record) => {
+          if (record.id) {
+            const attachments = await getAttachmentsByRecordId(record.id);
+            attachmentsMapping[record.id] = attachments.length > 0;
+          }
+        }));
+        
+        setRecordsWithAttachments(attachmentsMapping);
       } catch (error) {
         console.error('Error fetching pet details:', error);
         toast({
@@ -150,6 +164,20 @@ const PetDetails: React.FC = () => {
         return <Badge>{type}</Badge>;
     }
   };
+
+  // Sort records by date (most recent first)
+  const sortedRecords = [...medicalRecords].sort((a, b) => {
+    const dateA = new Date(a.visit_date).getTime();
+    const dateB = new Date(b.visit_date).getTime();
+    return dateB - dateA;
+  });
+
+  // Get the next appointment if any
+  const upcomingAppointment = sortedRecords.find(record => {
+    if (!record.next_appointment) return false;
+    const appointmentDate = new Date(record.next_appointment);
+    return appointmentDate > new Date();
+  });
 
   if (isLoading) {
     return (
@@ -280,12 +308,12 @@ const PetDetails: React.FC = () => {
                   </div>
                 </div>
                 
-                {medicalRecords.length > 0 && medicalRecords[0].next_appointment && (
+                {upcomingAppointment && (
                   <div className="mt-6 pt-6 border-t border-border">
                     <h4 className="text-sm font-medium mb-3">Upcoming Appointment</h4>
                     <div className="bg-accent/50 rounded-md p-3">
-                      <p className="font-medium">{formatDate(medicalRecords[0].next_appointment)}</p>
-                      <p className="text-sm text-muted-foreground">{medicalRecords[0].reason_for_visit || 'Check-up'}</p>
+                      <p className="font-medium">{formatDate(upcomingAppointment.next_appointment || '')}</p>
+                      <p className="text-sm text-muted-foreground">{upcomingAppointment.reason_for_visit || 'Check-up'}</p>
                     </div>
                   </div>
                 )}
@@ -311,9 +339,9 @@ const PetDetails: React.FC = () => {
                   </Button>
                 </div>
                 
-                {medicalRecords && medicalRecords.length > 0 ? (
+                {sortedRecords.length > 0 ? (
                   <div className="space-y-4">
-                    {medicalRecords.map(record => (
+                    {sortedRecords.map(record => (
                       <div 
                         key={record.id}
                         className="p-4 border border-border rounded-md hover:bg-accent/50 cursor-pointer transition-colors"
@@ -322,6 +350,12 @@ const PetDetails: React.FC = () => {
                         <div className="flex justify-between mb-2">
                           <p className="font-medium">{record.reason_for_visit || 'Medical Visit'}</p>
                           <div className="flex items-center gap-2">
+                            {record.id && recordsWithAttachments[record.id] && (
+                              <div className="flex items-center">
+                                <FileText className="h-3 w-3 text-muted-foreground mr-1" />
+                                <span className="text-xs text-muted-foreground">Attachments</span>
+                              </div>
+                            )}
                             {getRecordTypeBadge(record.type)}
                           </div>
                         </div>

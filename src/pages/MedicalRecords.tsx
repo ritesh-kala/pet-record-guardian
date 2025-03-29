@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import MedicalRecordCard from '@/components/ui-components/MedicalRecordCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Filter, Calendar, X } from 'lucide-react';
+import { Search, Filter, Calendar, X, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -14,109 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-// Mock data
-const medicalRecords = [
-  {
-    id: '1',
-    petId: '1',
-    petName: 'Buddy',
-    petSpecies: 'Dog',
-    date: 'April 12, 2023',
-    veterinarian: 'Smith',
-    reason: 'Annual Checkup',
-    diagnosis: 'Healthy',
-    treatment: 'None required',
-    hasAttachments: true,
-    status: 'completed' as const
-  },
-  {
-    id: '2',
-    petId: '2',
-    petName: 'Whiskers',
-    petSpecies: 'Cat',
-    date: 'May 20, 2023',
-    veterinarian: 'Johnson',
-    reason: 'Vaccination',
-    status: 'upcoming' as const
-  },
-  {
-    id: '3',
-    petId: '1',
-    petName: 'Buddy',
-    petSpecies: 'Dog',
-    date: 'March 5, 2023',
-    veterinarian: 'Williams',
-    reason: 'Skin Condition',
-    diagnosis: 'Allergic Dermatitis',
-    treatment: 'Prescribed antihistamines and medicated shampoo',
-    status: 'completed' as const
-  },
-  {
-    id: '4',
-    petId: '3',
-    petName: 'Rex',
-    petSpecies: 'Dog',
-    date: 'February 18, 2023',
-    veterinarian: 'Smith',
-    reason: 'Limping',
-    diagnosis: 'Mild sprain',
-    treatment: 'Rest and anti-inflammatory medication',
-    hasAttachments: true,
-    status: 'completed' as const
-  },
-  {
-    id: '5',
-    petId: '2',
-    petName: 'Whiskers',
-    petSpecies: 'Cat',
-    date: 'June 10, 2023',
-    veterinarian: 'Johnson',
-    reason: 'Dental Cleaning',
-    status: 'upcoming' as const
-  },
-  {
-    id: '6',
-    petId: '4',
-    petName: 'Luna',
-    petSpecies: 'Cat',
-    date: 'March 15, 2023',
-    veterinarian: 'Williams',
-    reason: 'Vomiting',
-    diagnosis: 'Hairball',
-    treatment: 'Hairball remedy and dietary adjustments',
-    status: 'completed' as const
-  },
-  {
-    id: '7',
-    petId: '1',
-    petName: 'Buddy',
-    petSpecies: 'Dog',
-    date: 'April 1, 2023',
-    veterinarian: 'Smith',
-    reason: 'Follow-up',
-    diagnosis: 'Improved skin condition',
-    treatment: 'Continue medication for another week',
-    status: 'completed' as const
-  },
-  {
-    id: '8',
-    petId: '6',
-    petName: 'Daisy',
-    petSpecies: 'Dog',
-    date: 'April 30, 2023',
-    veterinarian: 'Johnson',
-    reason: 'Annual Checkup & Vaccinations',
-    diagnosis: 'Healthy',
-    treatment: 'Vaccinations administered',
-    hasAttachments: true,
-    status: 'overdue' as const
-  }
-];
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getMedicalRecords, getPets, MedicalRecord, Pet } from '@/lib/supabaseService';
+import { useToast } from '@/components/ui/use-toast';
+import { format } from 'date-fns';
 
 const MedicalRecords: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [filters, setFilters] = useState({
@@ -126,34 +32,94 @@ const MedicalRecords: React.FC = () => {
   
   const [showFilters, setShowFilters] = useState(false);
   
+  const [medicalRecords, setMedicalRecords] = useState<Array<MedicalRecord & { petName?: string; petSpecies?: string }>>([]);
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch all pets
+        const petsData = await getPets();
+        setPets(petsData);
+        
+        // Fetch all medical records
+        const recordsData = await getMedicalRecords();
+        
+        // Map pet information to medical records
+        const recordsWithPetInfo = await Promise.all(
+          recordsData.map(async (record) => {
+            const relatedPet = petsData.find(pet => pet.id === record.pet_id);
+            return {
+              ...record,
+              petName: relatedPet?.name || 'Unknown Pet',
+              petSpecies: relatedPet?.species || 'Unknown'
+            };
+          })
+        );
+        
+        setMedicalRecords(recordsWithPetInfo);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load medical records. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [toast]);
+  
   // Get unique pets for filter dropdown
-  const uniquePets = Array.from(new Set(medicalRecords.map(record => record.petId)))
-    .map(petId => {
-      const record = medicalRecords.find(r => r.petId === petId);
-      return {
-        id: petId,
-        name: record?.petName || '',
-        species: record?.petSpecies || ''
-      };
-    });
+  const uniquePets = pets.map(pet => ({
+    id: pet.id,
+    name: pet.name,
+    species: pet.species
+  }));
+  
+  // Determine record status based on dates
+  const getRecordStatus = (record: MedicalRecord): 'upcoming' | 'completed' | 'overdue' => {
+    if (!record.visit_date) return 'completed';
+    
+    const visitDate = new Date(record.visit_date);
+    const today = new Date();
+    
+    // If it's a future date
+    if (visitDate > today) return 'upcoming';
+    
+    // Past visits are completed
+    return 'completed';
+  };
   
   // Handle filtering
   const getFilteredRecords = () => {
     return medicalRecords.filter(record => {
+      // Add status to each record
+      const status = getRecordStatus(record);
+      
       // Filter by tab
-      if (activeTab === 'upcoming' && record.status !== 'upcoming') return false;
-      if (activeTab === 'completed' && record.status !== 'completed') return false;
-      if (activeTab === 'overdue' && record.status !== 'overdue') return false;
+      if (activeTab === 'upcoming' && status !== 'upcoming') return false;
+      if (activeTab === 'completed' && status !== 'completed') return false;
+      if (activeTab === 'overdue' && status !== 'overdue') return false;
       
       // Filter by search
-      if (searchText && !record.reason.toLowerCase().includes(searchText.toLowerCase()) &&
-          !record.petName.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (searchText && 
+          !record.reason_for_visit?.toLowerCase().includes(searchText.toLowerCase()) &&
+          !record.petName?.toLowerCase().includes(searchText.toLowerCase())) {
+        return false;
+      }
       
       // Filter by pet
-      if (filters.pet && record.petId !== filters.pet) return false;
+      if (filters.pet && record.pet_id !== filters.pet) return false;
       
       // Filter by status
-      if (filters.status && record.status !== filters.status) return false;
+      if (filters.status && status !== filters.status) return false;
       
       return true;
     });
@@ -170,6 +136,24 @@ const MedicalRecords: React.FC = () => {
   };
   
   const hasActiveFilters = filters.pet || filters.status || searchText;
+  
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMMM d, yyyy');
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
   
   return (
     <Layout>
@@ -258,9 +242,9 @@ const MedicalRecords: React.FC = () => {
                     <SelectValue placeholder="All Pets" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all_pets">All Pets</SelectItem>
+                    <SelectItem value="">All Pets</SelectItem>
                     {uniquePets.map(pet => (
-                      <SelectItem key={pet.id} value={pet.id}>
+                      <SelectItem key={pet.id || 'unknown'} value={pet.id || ''}>
                         {pet.name} ({pet.species})
                       </SelectItem>
                     ))}
@@ -278,7 +262,7 @@ const MedicalRecords: React.FC = () => {
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all_statuses">All Statuses</SelectItem>
+                    <SelectItem value="">All Statuses</SelectItem>
                     <SelectItem value="upcoming">Upcoming</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
@@ -301,117 +285,169 @@ const MedicalRecords: React.FC = () => {
           
           <TabsContent value="all" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.map((record) => (
-                <div key={record.id} className="animate-slideIn">
-                  <div className="mb-2 px-1">
-                    <span className="text-sm font-medium">{record.petName}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map((record) => (
+                  <div key={record.id} className="animate-slideIn">
+                    <div className="mb-2 px-1">
+                      <span className="text-sm font-medium">{record.petName}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+                    </div>
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/records/${record.id}`)}
+                    >
+                      <MedicalRecordCard 
+                        date={formatDate(record.visit_date)}
+                        veterinarian={record.veterinarian || 'Unknown'}
+                        reason={record.reason_for_visit || 'Medical Visit'}
+                        diagnosis={record.diagnosis || undefined}
+                        treatment={record.treatment || undefined}
+                        status={getRecordStatus(record)}
+                      />
+                    </div>
                   </div>
-                  <MedicalRecordCard 
-                    date={record.date}
-                    veterinarian={record.veterinarian}
-                    reason={record.reason}
-                    diagnosis={record.diagnosis}
-                    treatment={record.treatment}
-                    hasAttachments={record.hasAttachments}
-                    status={record.status}
-                  />
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-16">
+                  <p className="text-muted-foreground">No medical records match your search criteria.</p>
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={clearFilters}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
-            
-            {filteredRecords.length === 0 && (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground">No medical records match your search criteria.</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={clearFilters}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
           </TabsContent>
           
           <TabsContent value="upcoming" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.map((record) => (
-                <div key={record.id} className="animate-slideIn">
-                  <div className="mb-2 px-1">
-                    <span className="text-sm font-medium">{record.petName}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map((record) => (
+                  <div key={record.id} className="animate-slideIn">
+                    <div className="mb-2 px-1">
+                      <span className="text-sm font-medium">{record.petName}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+                    </div>
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/records/${record.id}`)}
+                    >
+                      <MedicalRecordCard 
+                        date={formatDate(record.visit_date)}
+                        veterinarian={record.veterinarian || 'Unknown'}
+                        reason={record.reason_for_visit || 'Medical Visit'}
+                        diagnosis={record.diagnosis || undefined}
+                        treatment={record.treatment || undefined}
+                        status="upcoming"
+                      />
+                    </div>
                   </div>
-                  <MedicalRecordCard 
-                    date={record.date}
-                    veterinarian={record.veterinarian}
-                    reason={record.reason}
-                    diagnosis={record.diagnosis}
-                    treatment={record.treatment}
-                    hasAttachments={record.hasAttachments}
-                    status={record.status}
-                  />
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-16">
+                  <p className="text-muted-foreground">No upcoming appointments match your search criteria.</p>
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={clearFilters}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
-            
-            {filteredRecords.length === 0 && (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground">No upcoming appointments match your search criteria.</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={clearFilters}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
           </TabsContent>
           
           <TabsContent value="completed" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.map((record) => (
-                <div key={record.id} className="animate-slideIn">
-                  <div className="mb-2 px-1">
-                    <span className="text-sm font-medium">{record.petName}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map((record) => (
+                  <div key={record.id} className="animate-slideIn">
+                    <div className="mb-2 px-1">
+                      <span className="text-sm font-medium">{record.petName}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+                    </div>
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/records/${record.id}`)}
+                    >
+                      <MedicalRecordCard 
+                        date={formatDate(record.visit_date)}
+                        veterinarian={record.veterinarian || 'Unknown'}
+                        reason={record.reason_for_visit || 'Medical Visit'}
+                        diagnosis={record.diagnosis || undefined}
+                        treatment={record.treatment || undefined}
+                        status="completed"
+                      />
+                    </div>
                   </div>
-                  <MedicalRecordCard 
-                    date={record.date}
-                    veterinarian={record.veterinarian}
-                    reason={record.reason}
-                    diagnosis={record.diagnosis}
-                    treatment={record.treatment}
-                    hasAttachments={record.hasAttachments}
-                    status={record.status}
-                  />
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-16">
+                  <p className="text-muted-foreground">No completed records match your search criteria.</p>
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={clearFilters}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
           </TabsContent>
           
           <TabsContent value="overdue" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.map((record) => (
-                <div key={record.id} className="animate-slideIn">
-                  <div className="mb-2 px-1">
-                    <span className="text-sm font-medium">{record.petName}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map((record) => (
+                  <div key={record.id} className="animate-slideIn">
+                    <div className="mb-2 px-1">
+                      <span className="text-sm font-medium">{record.petName}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
+                    </div>
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/records/${record.id}`)}
+                    >
+                      <MedicalRecordCard 
+                        date={formatDate(record.visit_date)}
+                        veterinarian={record.veterinarian || 'Unknown'}
+                        reason={record.reason_for_visit || 'Medical Visit'}
+                        diagnosis={record.diagnosis || undefined}
+                        treatment={record.treatment || undefined}
+                        status="overdue"
+                      />
+                    </div>
                   </div>
-                  <MedicalRecordCard 
-                    date={record.date}
-                    veterinarian={record.veterinarian}
-                    reason={record.reason}
-                    diagnosis={record.diagnosis}
-                    treatment={record.treatment}
-                    hasAttachments={record.hasAttachments}
-                    status={record.status}
-                  />
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-16">
+                  <p className="text-muted-foreground">No overdue appointments match your search criteria.</p>
+                  {hasActiveFilters && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={clearFilters}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
-              ))}
+              )}
             </div>
           </TabsContent>
         </Tabs>
