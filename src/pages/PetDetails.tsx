@@ -40,8 +40,19 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getPetById, getMedicalRecords, getAppointments, deleteAppointment, Appointment, getOwnerById } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
 
-const PawPrint = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const PawPrint = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width="24" 
+    height="24" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
     <circle cx="11" cy="4" r="2"/>
     <circle cx="18" cy="8" r="2"/>
     <circle cx="4" cy="18" r="2"/>
@@ -52,7 +63,7 @@ const PawPrint = () => (
   </svg>
 );
 
-const Trash = () => Trash2;
+const Trash = () => <Trash2 />;
 
 const PetDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
