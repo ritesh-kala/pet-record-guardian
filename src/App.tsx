@@ -1,122 +1,80 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Pages
-import Index from "./pages/Index";
-import Owners from "./pages/Owners";
-import OwnerDetails from "./pages/OwnerDetails";
-import NewOwner from "./pages/NewOwner";
-import EditOwner from "./pages/EditOwner";
-import Pets from "./pages/Pets";
-import PetDetails from "./pages/PetDetails";
-import NewPet from "./pages/NewPet";
-import EditPet from "./pages/EditPet";
-import MedicalRecords from "./pages/MedicalRecords";
-import MedicalRecordDetails from "./pages/MedicalRecordDetails";
-import NewMedicalRecord from "./pages/NewMedicalRecord";
-import EditMedicalRecord from "./pages/EditMedicalRecord";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Profile from "./pages/Profile";
+import Index from '@/pages/Index';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import Pets from '@/pages/Pets';
+import Owners from '@/pages/Owners';
+import NewPet from '@/pages/NewPet';
+import NewOwner from '@/pages/NewOwner';
+import PetDetails from '@/pages/PetDetails';
+import OwnerDetails from '@/pages/OwnerDetails';
+import MedicalRecords from '@/pages/MedicalRecords';
+import NewMedicalRecord from '@/pages/NewMedicalRecord';
+import MedicalRecordDetails from '@/pages/MedicalRecordDetails';
+import Profile from '@/pages/Profile';
+import NotFound from '@/pages/NotFound';
+import EditPet from '@/pages/EditPet';
+import EditOwner from '@/pages/EditOwner';
+import EditMedicalRecord from '@/pages/EditMedicalRecord';
+import NewAppointment from '@/pages/NewAppointment';
+import EditAppointment from '@/pages/EditAppointment';
+import CalendarView from '@/pages/CalendarView';
 
-const queryClient = new QueryClient();
+import '@/App.css';
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+function App() {
+  return (
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+      <Router>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Index />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/profile" element={<Profile />} />
             
-            {/* Protected Routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            } />
-            <Route path="/owners" element={
-              <ProtectedRoute>
-                <Owners />
-              </ProtectedRoute>
-            } />
-            <Route path="/owners/:id" element={
-              <ProtectedRoute>
-                <OwnerDetails />
-              </ProtectedRoute>
-            } />
-            <Route path="/owners/new" element={
-              <ProtectedRoute>
-                <NewOwner />
-              </ProtectedRoute>
-            } />
-            <Route path="/owners/edit/:id" element={
-              <ProtectedRoute>
-                <EditOwner />
-              </ProtectedRoute>
-            } />
-            <Route path="/pets" element={
-              <ProtectedRoute>
-                <Pets />
-              </ProtectedRoute>
-            } />
-            <Route path="/pets/:id" element={
-              <ProtectedRoute>
-                <PetDetails />
-              </ProtectedRoute>
-            } />
-            <Route path="/pets/new" element={
-              <ProtectedRoute>
-                <NewPet />
-              </ProtectedRoute>
-            } />
-            <Route path="/pets/edit/:id" element={
-              <ProtectedRoute>
-                <EditPet />
-              </ProtectedRoute>
-            } />
-            <Route path="/records" element={
-              <ProtectedRoute>
-                <MedicalRecords />
-              </ProtectedRoute>
-            } />
-            <Route path="/records/:id" element={
-              <ProtectedRoute>
-                <MedicalRecordDetails />
-              </ProtectedRoute>
-            } />
-            <Route path="/records/new" element={
-              <ProtectedRoute>
-                <NewMedicalRecord />
-              </ProtectedRoute>
-            } />
-            <Route path="/records/edit/:id" element={
-              <ProtectedRoute>
-                <EditMedicalRecord />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+            {/* Pets */}
+            <Route path="/pets" element={<Pets />} />
+            <Route path="/pets/new" element={<NewPet />} />
+            <Route path="/pets/:id" element={<PetDetails />} />
+            <Route path="/pets/:id/edit" element={<EditPet />} />
+            
+            {/* Owners */}
+            <Route path="/owners" element={<Owners />} />
+            <Route path="/owners/new" element={<NewOwner />} />
+            <Route path="/owners/:id" element={<OwnerDetails />} />
+            <Route path="/owners/:id/edit" element={<EditOwner />} />
+            
+            {/* Medical Records */}
+            <Route path="/records" element={<MedicalRecords />} />
+            <Route path="/records/new" element={<NewMedicalRecord />} />
+            <Route path="/records/:id" element={<MedicalRecordDetails />} />
+            <Route path="/records/:id/edit" element={<EditMedicalRecord />} />
+            
+            {/* Appointments */}
+            <Route path="/appointments/new" element={<NewAppointment />} />
+            <Route path="/appointments/:id/edit" element={<EditAppointment />} />
+            
+            {/* Calendar */}
+            <Route path="/calendar" element={<CalendarView />} />
+          </Route>
+          
+          {/* Catch-all route */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+      </Router>
     </AuthProvider>
-  </QueryClientProvider>
-);
+  );
+}
 
 export default App;

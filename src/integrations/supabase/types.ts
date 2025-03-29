@@ -9,6 +9,59 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          is_recurring: boolean | null
+          notes: string | null
+          pet_id: string | null
+          reason: string | null
+          recurrence_end_date: string | null
+          recurrence_pattern: string | null
+          status: string | null
+          time: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          pet_id?: string | null
+          reason?: string | null
+          recurrence_end_date?: string | null
+          recurrence_pattern?: string | null
+          status?: string | null
+          time?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          pet_id?: string | null
+          reason?: string | null
+          recurrence_end_date?: string | null
+          recurrence_pattern?: string | null
+          status?: string | null
+          time?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           created_at: string | null

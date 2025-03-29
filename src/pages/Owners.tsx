@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -76,11 +77,7 @@ const Owners: React.FC = () => {
   };
 
   const handleAddOwner = () => {
-    if (!userHasOwnerProfile) {
-      navigate('/owners/new');
-    } else {
-      navigate('/owners/new');
-    }
+    navigate('/owners/new');
   };
 
   return (
@@ -125,7 +122,6 @@ const Owners: React.FC = () => {
                 email={owner.email} 
                 phone={owner.phone || ''} 
                 address={owner.address || ''} 
-                petCount={0} // We'll update this later
               />
             ))}
           </div>

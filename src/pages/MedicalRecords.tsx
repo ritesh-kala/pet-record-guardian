@@ -4,69 +4,48 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import MedicalRecordCard from '@/components/ui-components/MedicalRecordCard';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Filter, Calendar, X, Loader2 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getMedicalRecords, getPets, MedicalRecord, Pet } from '@/lib/supabaseService';
-import { useToast } from '@/components/ui/use-toast';
+import { Input } from '@/components/ui/input';
+import { Search, Calendar, Loader2, FilePlus, Filter } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { getMedicalRecords, getAppointments, getPets, MedicalRecord, Appointment, Pet } from '@/lib/supabaseService';
 import { format } from 'date-fns';
+import { useToast } from '@/components/ui/use-toast';
 
 const MedicalRecords: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('all');
-  const [searchText, setSearchText] = useState('');
-  const [filters, setFilters] = useState({
-    pet: '',
-    status: '',
-  });
-  
-  const [showFilters, setShowFilters] = useState(false);
-  
-  const [medicalRecords, setMedicalRecords] = useState<Array<MedicalRecord & { petName?: string; petSpecies?: string }>>([]);
-  const [pets, setPets] = useState<Pet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [records, setRecords] = useState<MedicalRecord[]>([]);
+  const [filteredRecords, setFilteredRecords] = useState<MedicalRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [petFilter, setPetFilter] = useState<string>('');
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch all pets
-        const petsData = await getPets();
+        const [medicalRecordsData, appointmentsData, petsData] = await Promise.all([
+          getMedicalRecords(),
+          getAppointments(),
+          getPets()
+        ]);
+        
+        setRecords(medicalRecordsData);
+        setFilteredRecords(medicalRecordsData);
+        setAppointments(appointmentsData);
         setPets(petsData);
-        
-        // Fetch all medical records
-        const recordsData = await getMedicalRecords();
-        
-        // Map pet information to medical records
-        const recordsWithPetInfo = await Promise.all(
-          recordsData.map(async (record) => {
-            const relatedPet = petsData.find(pet => pet.id === record.pet_id);
-            return {
-              ...record,
-              petName: relatedPet?.name || 'Unknown Pet',
-              petSpecies: relatedPet?.species || 'Unknown'
-            };
-          })
-        );
-        
-        setMedicalRecords(recordsWithPetInfo);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast({
-          title: "Error",
-          description: "Failed to load medical records. Please try again.",
-          variant: "destructive"
+          title: 'Error',
+          description: 'Failed to load data. Please try again.',
+          variant: 'destructive'
         });
       } finally {
         setIsLoading(false);
@@ -75,382 +54,221 @@ const MedicalRecords: React.FC = () => {
     
     fetchData();
   }, [toast]);
-  
-  // Get unique pets for filter dropdown
-  const uniquePets = pets.map(pet => ({
-    id: pet.id,
-    name: pet.name,
-    species: pet.species
-  }));
-  
-  // Determine record status based on dates
-  const getRecordStatus = (record: MedicalRecord): 'upcoming' | 'completed' | 'overdue' => {
-    if (!record.visit_date) return 'completed';
+
+  // Filter records based on search query and pet filter
+  useEffect(() => {
+    let filtered = records;
     
-    const visitDate = new Date(record.visit_date);
-    const today = new Date();
-    
-    // If it's a future date
-    if (visitDate > today) return 'upcoming';
-    
-    // Past visits are completed
-    return 'completed';
-  };
-  
-  // Handle filtering
-  const getFilteredRecords = () => {
-    return medicalRecords.filter(record => {
-      // Add status to each record
-      const status = getRecordStatus(record);
-      
-      // Filter by tab
-      if (activeTab === 'upcoming' && status !== 'upcoming') return false;
-      if (activeTab === 'completed' && status !== 'completed') return false;
-      if (activeTab === 'overdue' && status !== 'overdue') return false;
-      
-      // Filter by search
-      if (searchText && 
-          !record.reason_for_visit?.toLowerCase().includes(searchText.toLowerCase()) &&
-          !record.petName?.toLowerCase().includes(searchText.toLowerCase())) {
-        return false;
-      }
-      
-      // Filter by pet
-      if (filters.pet && record.pet_id !== filters.pet) return false;
-      
-      // Filter by status
-      if (filters.status && status !== filters.status) return false;
-      
-      return true;
-    });
-  };
-  
-  const filteredRecords = getFilteredRecords();
-  
-  const clearFilters = () => {
-    setFilters({
-      pet: '',
-      status: '',
-    });
-    setSearchText('');
-  };
-  
-  const hasActiveFilters = filters.pet || filters.status || searchText;
-  
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMMM d, yyyy');
-    } catch (error) {
-      return 'Invalid date';
+    if (searchQuery) {
+      filtered = filtered.filter(record => 
+        (record.reason_for_visit && record.reason_for_visit.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (record.diagnosis && record.diagnosis.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (record.veterinarian && record.veterinarian.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
     }
+    
+    if (petFilter) {
+      filtered = filtered.filter(record => record.pet_id === petFilter);
+    }
+    
+    if (activeTab === 'recent') {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+      filtered = filtered.filter(record => new Date(record.visit_date) >= thirtyDaysAgo);
+    }
+    
+    setFilteredRecords(filtered);
+  }, [searchQuery, petFilter, activeTab, records]);
+
+  // Get pet name by id
+  const getPetName = (petId: string) => {
+    const pet = pets.find(p => p.id === petId);
+    return pet ? pet.name : 'Unknown Pet';
   };
-  
-  if (isLoading) {
-    return (
-      <Layout>
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
-  }
-  
+
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
+  // Handle pet filter change
+  const handlePetFilterChange = (value: string) => {
+    setPetFilter(value);
+  };
+
   return (
     <Layout>
       <div className="space-y-8">
         <SectionHeader 
           title="Medical Records" 
-          description="Track vet visits, diagnoses, and treatments" 
+          description="Track your pets' health history"
           buttonText="Add New Record"
           buttonLink="/records/new"
         />
         
-        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-            <TabsList className="mb-0">
-              <TabsTrigger value="all">All Records</TabsTrigger>
-              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-              <TabsTrigger value="overdue">Overdue</TabsTrigger>
-            </TabsList>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input 
+              placeholder="Search records..." 
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <Select value={petFilter} onValueChange={handlePetFilterChange}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <span className="flex items-center">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="All Pets" />
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Pets</SelectItem>
+                {pets.map(pet => (
+                  <SelectItem key={pet.id} value={pet.id || ''}>
+                    {pet.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             
             <Button 
               variant="outline" 
-              size="sm" 
-              className="gap-1"
-              onClick={() => navigate('/reports')}
+              className="gap-2"
+              onClick={() => navigate('/calendar')}
             >
-              <Calendar className="h-4 w-4" /> View Calendar
+              <Calendar className="h-4 w-4" />
+              View Calendar
             </Button>
           </div>
+        </div>
+        
+        <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+            <TabsTrigger value="all">All Records</TabsTrigger>
+            <TabsTrigger value="recent">Recent (30 days)</TabsTrigger>
+          </TabsList>
           
-          <div className="flex flex-col md:flex-row gap-4 items-start mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input 
-                placeholder="Search records..." 
-                className="pl-9"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-              />
-            </div>
-            
-            <div className="flex gap-2 items-center">
-              <Button 
-                variant="outline" 
-                size="icon"
-                className={showFilters ? "bg-accent" : ""}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-              
-              {hasActiveFilters && (
-                <Badge 
-                  variant="outline" 
-                  className="gap-1 cursor-pointer"
-                  onClick={clearFilters}
-                >
-                  Filters Active
-                  <X className="h-3 w-3" />
-                </Badge>
-              )}
-              
-              <Select defaultValue="date-desc">
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date-desc">Date (Newest First)</SelectItem>
-                  <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
-                  <SelectItem value="pet">Pet Name</SelectItem>
-                  <SelectItem value="vet">Veterinarian</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {showFilters && (
-            <div className="bg-accent/50 border border-border rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6 animate-fadeIn">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Pet</label>
-                <Select 
-                  value={filters.pet} 
-                  onValueChange={(value) => setFilters({...filters, pet: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Pets" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Pets</SelectItem>
-                    {uniquePets.map(pet => (
-                      <SelectItem key={pet.id || 'unknown'} value={pet.id || ''}>
-                        {pet.name} ({pet.species})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <TabsContent value="all" className="space-y-4 mt-6">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select 
-                  value={filters.status} 
-                  onValueChange={(value) => setFilters({...filters, status: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Statuses</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                  </SelectContent>
-                </Select>
+            ) : filteredRecords.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRecords.map(record => (
+                  <MedicalRecordCard 
+                    key={record.id}
+                    id={record.id || ''}
+                    petId={record.pet_id}
+                    petName={getPetName(record.pet_id)}
+                    date={format(new Date(record.visit_date), 'PPP')}
+                    type={record.type || 'Other'}
+                    diagnosis={record.diagnosis || ''}
+                    veterinarian={record.veterinarian || ''}
+                    onClick={() => navigate(`/records/${record.id}`)}
+                  />
+                ))}
               </div>
-              
-              <div className="flex items-end">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                  onClick={clearFilters}
-                >
-                  Clear Filters
+            ) : (
+              <div className="text-center py-12">
+                <h3 className="text-lg font-medium mb-2">No Records Found</h3>
+                <p className="text-muted-foreground mb-6">
+                  {searchQuery || petFilter ? 'No records match your search criteria.' : 'You haven\'t added any medical records yet.'}
+                </p>
+                <Button onClick={() => navigate('/records/new')}>
+                  <FilePlus className="mr-2 h-4 w-4" />
+                  Add New Record
                 </Button>
               </div>
-            </div>
-          )}
-          
-          <TabsContent value="all" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.length > 0 ? (
-                filteredRecords.map((record) => (
-                  <div key={record.id} className="animate-slideIn">
-                    <div className="mb-2 px-1">
-                      <span className="text-sm font-medium">{record.petName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
-                    </div>
-                    <div 
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/records/${record.id}`)}
-                    >
-                      <MedicalRecordCard 
-                        date={formatDate(record.visit_date)}
-                        veterinarian={record.veterinarian || 'Unknown'}
-                        reason={record.reason_for_visit || 'Medical Visit'}
-                        diagnosis={record.diagnosis || undefined}
-                        treatment={record.treatment || undefined}
-                        status={getRecordStatus(record)}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-3 text-center py-16">
-                  <p className="text-muted-foreground">No medical records match your search criteria.</p>
-                  {hasActiveFilters && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={clearFilters}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
           </TabsContent>
           
-          <TabsContent value="upcoming" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.length > 0 ? (
-                filteredRecords.map((record) => (
-                  <div key={record.id} className="animate-slideIn">
-                    <div className="mb-2 px-1">
-                      <span className="text-sm font-medium">{record.petName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
-                    </div>
-                    <div 
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/records/${record.id}`)}
-                    >
-                      <MedicalRecordCard 
-                        date={formatDate(record.visit_date)}
-                        veterinarian={record.veterinarian || 'Unknown'}
-                        reason={record.reason_for_visit || 'Medical Visit'}
-                        diagnosis={record.diagnosis || undefined}
-                        treatment={record.treatment || undefined}
-                        status="upcoming"
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-3 text-center py-16">
-                  <p className="text-muted-foreground">No upcoming appointments match your search criteria.</p>
-                  {hasActiveFilters && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={clearFilters}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="completed" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.length > 0 ? (
-                filteredRecords.map((record) => (
-                  <div key={record.id} className="animate-slideIn">
-                    <div className="mb-2 px-1">
-                      <span className="text-sm font-medium">{record.petName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
-                    </div>
-                    <div 
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/records/${record.id}`)}
-                    >
-                      <MedicalRecordCard 
-                        date={formatDate(record.visit_date)}
-                        veterinarian={record.veterinarian || 'Unknown'}
-                        reason={record.reason_for_visit || 'Medical Visit'}
-                        diagnosis={record.diagnosis || undefined}
-                        treatment={record.treatment || undefined}
-                        status="completed"
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-3 text-center py-16">
-                  <p className="text-muted-foreground">No completed records match your search criteria.</p>
-                  {hasActiveFilters && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={clearFilters}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="overdue" className="mt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRecords.length > 0 ? (
-                filteredRecords.map((record) => (
-                  <div key={record.id} className="animate-slideIn">
-                    <div className="mb-2 px-1">
-                      <span className="text-sm font-medium">{record.petName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({record.petSpecies})</span>
-                    </div>
-                    <div 
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/records/${record.id}`)}
-                    >
-                      <MedicalRecordCard 
-                        date={formatDate(record.visit_date)}
-                        veterinarian={record.veterinarian || 'Unknown'}
-                        reason={record.reason_for_visit || 'Medical Visit'}
-                        diagnosis={record.diagnosis || undefined}
-                        treatment={record.treatment || undefined}
-                        status="overdue"
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-span-3 text-center py-16">
-                  <p className="text-muted-foreground">No overdue appointments match your search criteria.</p>
-                  {hasActiveFilters && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={clearFilters}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+          <TabsContent value="recent" className="space-y-4 mt-6">
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredRecords.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredRecords.map(record => (
+                  <MedicalRecordCard 
+                    key={record.id}
+                    id={record.id || ''}
+                    petId={record.pet_id}
+                    petName={getPetName(record.pet_id)}
+                    date={format(new Date(record.visit_date), 'PPP')}
+                    type={record.type || 'Other'}
+                    diagnosis={record.diagnosis || ''}
+                    veterinarian={record.veterinarian || ''}
+                    onClick={() => navigate(`/records/${record.id}`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <h3 className="text-lg font-medium mb-2">No Recent Records</h3>
+                <p className="text-muted-foreground mb-6">
+                  No medical records in the last 30 days.
+                </p>
+                <Button onClick={() => navigate('/records/new')}>
+                  <FilePlus className="mr-2 h-4 w-4" />
+                  Add New Record
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
+        
+        <div className="mt-8 border-t pt-8">
+          <h2 className="text-2xl font-bold mb-4">Upcoming Appointments</h2>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : appointments.filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date()).length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {appointments
+                .filter(a => a.status === 'scheduled' && new Date(a.date) >= new Date())
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .slice(0, 6)
+                .map(appointment => (
+                  <div
+                    key={appointment.id}
+                    className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                  >
+                    <div className="mb-2">
+                      <h3 className="font-medium">{appointment.reason || 'Appointment'}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Pet: {getPetName(appointment.pet_id)}
+                      </p>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span>
+                        {format(new Date(appointment.date), 'PPP')}
+                        {appointment.time && ` at ${appointment.time}`}
+                      </span>
+                      <Button variant="ghost" size="sm">
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          ) : (
+            <div className="text-center py-8 border rounded-lg bg-muted/20">
+              <p className="text-muted-foreground">No upcoming appointments scheduled</p>
+              <Button variant="outline" className="mt-4" onClick={() => navigate('/pets')}>
+                Schedule an Appointment
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );

@@ -2,410 +2,580 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import SectionHeader from '@/components/ui-components/SectionHeader';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { 
-  ArrowLeft, 
-  Edit, 
-  Info, 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
   Calendar, 
-  User, 
-  Stethoscope, 
+  PawPrint, 
+  Heart, 
+  Info, 
+  Edit, 
   Plus, 
+  FileText, 
+  Clock,
   Loader2,
-  Upload,
-  Image as ImageIcon,
-  FileText
+  Trash
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { getPetById, getMedicalRecords, getAttachmentsByRecordId, MedicalRecord, Pet } from '@/lib/supabaseService';
-import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { 
+  getPetById, 
+  getMedicalRecords, 
+  getAppointments, 
+  getOwnerById, 
+  deleteAppointment 
+} from '@/lib/supabaseService';
+import { useToast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const PetDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [pet, setPet] = useState<Pet | null>(null);
-  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
-  const [recordsWithAttachments, setRecordsWithAttachments] = useState<Record<string, boolean>>({});
+  const [pet, setPet] = useState<any>(null);
+  const [owner, setOwner] = useState<any>(null);
+  const [medicalRecords, setMedicalRecords] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [ownerName, setOwnerName] = useState<string>('');
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [activeTab, setActiveTab] = useState('info');
   
   useEffect(() => {
-    const fetchPetDetails = async () => {
+    const fetchData = async () => {
       if (!id) return;
-
+      
       try {
         setIsLoading(true);
+        
+        // Fetch pet data
         const petData = await getPetById(id);
         setPet(petData);
-
+        
+        // Fetch pet owner
         if (petData.owner_id) {
-          const { data: ownerData } = await supabase
-            .from('owners')
-            .select('name')
-            .eq('id', petData.owner_id)
-            .single();
-          
-          if (ownerData) {
-            setOwnerName(ownerData.name);
-          }
+          const ownerData = await getOwnerById(petData.owner_id);
+          setOwner(ownerData);
         }
-
-        // Fetch medical records for this specific pet
+        
+        // Fetch medical records
         const records = await getMedicalRecords(id);
         setMedicalRecords(records);
         
-        // Check which records have attachments
-        const attachmentsMapping: Record<string, boolean> = {};
-        await Promise.all(records.map(async (record) => {
-          if (record.id) {
-            const attachments = await getAttachmentsByRecordId(record.id);
-            attachmentsMapping[record.id] = attachments.length > 0;
-          }
-        }));
+        // Fetch appointments
+        const appointmentsData = await getAppointments(id);
+        setAppointments(appointmentsData);
         
-        setRecordsWithAttachments(attachmentsMapping);
       } catch (error) {
         console.error('Error fetching pet details:', error);
         toast({
-          title: "Error",
-          description: "Failed to load pet details. Please try again.",
-          variant: "destructive"
+          title: 'Error',
+          description: 'Failed to load pet details',
+          variant: 'destructive'
         });
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchPetDetails();
-  }, [id, toast]);
-
-  const handleEditPet = () => {
-    if (id) {
-      navigate(`/pets/edit/${id}`);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMMM d, yyyy');
-    } catch (error) {
-      return 'Invalid date';
-    }
-  };
-
-  const handleUploadPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !id) return;
-
-    try {
-      setUploadingPhoto(true);
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `pets/${fileName}`;
-
-      const { error: uploadError, data } = await supabase.storage
-        .from('pet-images')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from('pet-images')
-        .getPublicUrl(filePath);
-
-      const imageUrl = publicUrlData.publicUrl;
-      
-      const { error: updateError } = await supabase
-        .from('pets')
-        .update({ image_url: imageUrl })
-        .eq('id', id);
-
-      if (updateError) throw updateError;
-
-      setPet(prev => prev ? { ...prev, image_url: imageUrl } : null);
-      
-      toast({
-        title: "Success",
-        description: "Pet photo uploaded successfully",
-      });
-    } catch (error) {
-      console.error('Error uploading photo:', error);
-      toast({
-        title: "Error",
-        description: "Failed to upload photo. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  const getRecordTypeBadge = (type: string | null | undefined) => {
-    if (!type) return <Badge>General</Badge>;
     
-    switch(type) {
-      case 'Vaccination':
-        return <Badge className="bg-green-500">Vaccination</Badge>;
-      case 'Health Checkup':
-        return <Badge className="bg-blue-500">Health Checkup</Badge>;
-      case 'Treatment':
-        return <Badge className="bg-purple-500">Treatment</Badge>;
-      case 'Prescription':
-        return <Badge className="bg-yellow-500">Prescription</Badge>;
-      case 'Allergy':
-        return <Badge className="bg-red-500">Allergy</Badge>;
-      case 'Diagnostic Test':
-        return <Badge className="bg-indigo-500">Diagnostic Test</Badge>;
-      default:
-        return <Badge>{type}</Badge>;
+    fetchData();
+  }, [id, toast]);
+  
+  const handleDeleteAppointment = async (appointmentId: string) => {
+    try {
+      await deleteAppointment(appointmentId);
+      setAppointments(appointments.filter(appointment => appointment.id !== appointmentId));
+      toast({
+        title: 'Success',
+        description: 'Appointment deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete appointment',
+        variant: 'destructive',
+      });
     }
   };
-
-  // Sort records by date (most recent first)
-  const sortedRecords = [...medicalRecords].sort((a, b) => {
-    const dateA = new Date(a.visit_date).getTime();
-    const dateB = new Date(b.visit_date).getTime();
-    return dateB - dateA;
-  });
-
-  // Get the next appointment if any
-  const upcomingAppointment = sortedRecords.find(record => {
-    if (!record.next_appointment) return false;
-    const appointmentDate = new Date(record.next_appointment);
-    return appointmentDate > new Date();
-  });
-
+  
   if (isLoading) {
     return (
       <Layout>
-        <div className="flex justify-center items-center py-20">
+        <div className="flex justify-center items-center py-24">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </Layout>
     );
   }
-
+  
   if (!pet) {
     return (
       <Layout>
         <div className="text-center py-12">
-          <h2 className="text-2xl font-medium mb-2">Pet Not Found</h2>
-          <p className="text-muted-foreground mb-6">The pet you're looking for doesn't exist or has been removed.</p>
-          <Button onClick={() => navigate('/pets')}>
-            Go Back to Pets
+          <h2 className="text-2xl font-bold">Pet Not Found</h2>
+          <p className="mt-2 text-muted-foreground">The pet you're looking for doesn't exist.</p>
+          <Button className="mt-4" onClick={() => navigate('/pets')}>
+            Back to Pets
           </Button>
         </div>
       </Layout>
     );
   }
   
+  const petAge = pet.date_of_birth
+    ? Math.floor((new Date().getTime() - new Date(pet.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : pet.age || 'Unknown';
+    
+  const sortedMedicalRecords = [...medicalRecords].sort((a, b) => 
+    new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
+  );
+  
+  const upcomingAppointments = appointments
+    .filter(appointment => appointment.status === 'scheduled' && new Date(appointment.date) >= new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+  const pastAppointments = appointments
+    .filter(appointment => appointment.status !== 'scheduled' || new Date(appointment.date) < new Date())
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   return (
     <Layout>
-      <div className="space-y-6 animate-fadeIn">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/pets')}
-            className="rounded-full"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <SectionHeader 
-            title={pet.name} 
-            description={`${pet.breed || 'Unknown breed'} · ${pet.age || '?'} years old`}
-            buttonText="Edit Pet"
-            buttonIcon={<Edit className="h-4 w-4" />}
-            onButtonClick={handleEditPet}
-          />
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16 border-2 border-primary">
+              {pet.image_url ? (
+                <img src={pet.image_url} alt={pet.name} className="object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-muted">
+                  <PawPrint className="h-8 w-8 text-muted-foreground" />
+                </div>
+              )}
+            </Avatar>
+            
+            <div>
+              <h1 className="text-3xl font-bold">{pet.name}</h1>
+              <div className="flex items-center gap-2 text-muted-foreground mt-1">
+                <Badge variant="outline">{pet.species}</Badge>
+                {pet.breed && <Badge variant="outline">{pet.breed}</Badge>}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-2 w-full md:w-auto">
+            <Button 
+              variant="outline" 
+              className="flex-1 md:flex-none"
+              onClick={() => navigate(`/pets/${id}/edit`)}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Pet
+            </Button>
+            <Button 
+              className="flex-1 md:flex-none"
+              onClick={() => navigate(`/records/new?petId=${id}`)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Record
+            </Button>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1">
-            <Card className="overflow-hidden">
-              <div className="relative">
-                <div 
-                  className="h-48 w-full bg-cover bg-center"
-                  style={{ 
-                    backgroundImage: pet.image_url ? `url(${pet.image_url})` : 'none',
-                    backgroundColor: !pet.image_url ? '#f1f5f9' : 'transparent'
-                  }}
-                >
-                  {!pet.image_url && (
-                    <div className="flex items-center justify-center h-full">
-                      <ImageIcon className="h-12 w-12 text-muted-foreground opacity-20" />
-                    </div>
-                  )}
-                </div>
-                <div className="absolute bottom-2 right-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1">
-                        <Upload className="h-3 w-3" /> Photo
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Upload Pet Photo</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                        <Input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handleUploadPhoto}
-                          disabled={uploadingPhoto}
-                        />
-                        {uploadingPhoto && (
-                          <div className="flex items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-              <CardContent className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <Badge variant={pet.gender === 'Male' ? 'default' : 'secondary'}>
-                    {pet.gender || 'Unknown'}
-                  </Badge>
-                  <p className="text-sm text-muted-foreground">{pet.weight ? `${pet.weight} kg` : 'Weight unknown'}</p>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
+        <Tabs defaultValue="info" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
+            <TabsTrigger value="info" className="flex items-center gap-1">
+              <Info className="h-4 w-4" />
+              <span className="hidden sm:inline">Info</span>
+            </TabsTrigger>
+            <TabsTrigger value="health" className="flex items-center gap-1">
+              <Heart className="h-4 w-4" />
+              <span className="hidden sm:inline">Health Records</span>
+            </TabsTrigger>
+            <TabsTrigger value="appointments" className="flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Appointments</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Pet Info Tab */}
+          <TabsContent value="info" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PawPrint className="h-5 w-5" />
+                    Pet Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">Microchip ID</p>
-                      <p>{pet.microchip_id || 'Not available'}</p>
+                      <p className="text-sm text-muted-foreground">Species</p>
+                      <p className="font-medium">{pet.species}</p>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Date of Birth</p>
-                      <p>{pet.date_of_birth ? formatDate(pet.date_of_birth.toString()) : 'Not available'}</p>
+                      <p className="text-sm text-muted-foreground">Breed</p>
+                      <p className="font-medium">{pet.breed || 'Not specified'}</p>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <User className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Owner</p>
-                      <p 
-                        className="text-primary hover:underline cursor-pointer"
-                        onClick={() => navigate(`/owners/${pet.owner_id}`)}
-                      >
-                        {ownerName || 'Unknown'}
+                      <p className="text-sm text-muted-foreground">Age</p>
+                      <p className="font-medium">{petAge} {petAge === 1 ? 'year' : 'years'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Gender</p>
+                      <p className="font-medium">{pet.gender || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Weight</p>
+                      <p className="font-medium">{pet.weight ? `${pet.weight} kg` : 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Birth Date</p>
+                      <p className="font-medium">
+                        {pet.date_of_birth ? format(new Date(pet.date_of_birth), 'PP') : 'Not specified'}
                       </p>
                     </div>
                   </div>
-                </div>
-                
-                {upcomingAppointment && (
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <h4 className="text-sm font-medium mb-3">Upcoming Appointment</h4>
-                    <div className="bg-accent/50 rounded-md p-3">
-                      <p className="font-medium">{formatDate(upcomingAppointment.next_appointment || '')}</p>
-                      <p className="text-sm text-muted-foreground">{upcomingAppointment.reason_for_visit || 'Check-up'}</p>
-                    </div>
+                  
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="text-sm text-muted-foreground mb-1">Microchip ID</h3>
+                    <p className="font-medium">{pet.microchip_id || 'No microchip information'}</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="md:col-span-2">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Stethoscope className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-medium">Medical Records</h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
-                      onClick={() => navigate(`/records?petId=${pet.id}`)}
-                    >
-                      <FileText className="h-3 w-3" />
-                      View All
-                    </Button>
-                    <Button 
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => navigate(`/records/new?petId=${pet.id}`)}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add Record
-                    </Button>
-                  </div>
-                </div>
-                
-                {sortedRecords.length > 0 ? (
-                  <div className="space-y-4">
-                    {sortedRecords.slice(0, 5).map(record => (
-                      <div 
-                        key={record.id}
-                        className="p-4 border border-border rounded-md hover:bg-accent/50 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/records/${record.id}`)}
-                      >
-                        <div className="flex justify-between mb-2">
-                          <p className="font-medium">{record.reason_for_visit || 'Medical Visit'}</p>
-                          <div className="flex items-center gap-2">
-                            {record.id && recordsWithAttachments[record.id] && (
-                              <div className="flex items-center">
-                                <FileText className="h-3 w-3 text-muted-foreground mr-1" />
-                                <span className="text-xs text-muted-foreground">Attachments</span>
-                              </div>
-                            )}
-                            {getRecordTypeBadge(record.type)}
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-1">
-                          {record.diagnosis || record.treatment || 'No diagnosis recorded'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(record.visit_date)}
-                        </p>
+                  
+                  <div>
+                    <h3 className="text-sm text-muted-foreground mb-1">Insurance</h3>
+                    {pet.insurance_provider ? (
+                      <div>
+                        <p className="font-medium">{pet.insurance_provider}</p>
+                        {pet.policy_number && <p className="text-sm">Policy: {pet.policy_number}</p>}
                       </div>
-                    ))}
-                    {sortedRecords.length > 5 && (
-                      <div className="text-center mt-4">
-                        <Button 
-                          variant="link" 
-                          onClick={() => navigate(`/records?petId=${pet.id}`)}
-                        >
-                          View All Records
-                        </Button>
-                      </div>
+                    ) : (
+                      <p>No insurance information</p>
                     )}
                   </div>
-                ) : (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <Stethoscope className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                    <p>No medical records yet</p>
-                    <p className="text-sm">Add the first medical record by clicking the "Add Record" button</p>
-                  </div>
+                  
+                  {pet.notes && (
+                    <div>
+                      <h3 className="text-sm text-muted-foreground mb-1">Additional Notes</h3>
+                      <p>{pet.notes}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Owner Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {owner ? (
+                    <>
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-1">Name</h3>
+                        <p className="font-medium">{owner.name}</p>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-1">Contact</h3>
+                        <p className="font-medium">{owner.email}</p>
+                        {owner.phone && <p>{owner.phone}</p>}
+                      </div>
+                      
+                      {owner.address && (
+                        <div>
+                          <h3 className="text-sm text-muted-foreground mb-1">Address</h3>
+                          <p>{owner.address}</p>
+                        </div>
+                      )}
+                      
+                      <Separator />
+                      
+                      {(owner.emergency_contact_name || owner.emergency_contact_phone) && (
+                        <div>
+                          <h3 className="text-sm text-muted-foreground mb-1">Emergency Contact</h3>
+                          {owner.emergency_contact_name && (
+                            <p className="font-medium">{owner.emergency_contact_name}</p>
+                          )}
+                          {owner.emergency_contact_phone && (
+                            <p>{owner.emergency_contact_phone}</p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {(owner.preferred_vet_name || owner.preferred_vet_contact) && (
+                        <div>
+                          <h3 className="text-sm text-muted-foreground mb-1">Preferred Veterinarian</h3>
+                          {owner.preferred_vet_name && (
+                            <p className="font-medium">{owner.preferred_vet_name}</p>
+                          )}
+                          {owner.preferred_vet_contact && (
+                            <p>{owner.preferred_vet_contact}</p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No owner information available</p>
+                    </div>
+                  )}
+                </CardContent>
+                {owner && (
+                  <CardFooter>
+                    <Button variant="outline" className="w-full" onClick={() => navigate(`/owners/${owner.id}`)}>
+                      View Owner Profile
+                    </Button>
+                  </CardFooter>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          {/* Health Records Tab */}
+          <TabsContent value="health" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Medical Records</h2>
+              <Button onClick={() => navigate(`/records/new?petId=${id}`)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add New Record
+              </Button>
+            </div>
+            
+            {sortedMedicalRecords.length > 0 ? (
+              <div className="space-y-4">
+                {sortedMedicalRecords.map(record => (
+                  <Card key={record.id} className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate(`/records/${record.id}`)}>
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{record.reason_for_visit || 'Medical Visit'}</CardTitle>
+                          <CardDescription>
+                            {format(new Date(record.visit_date), 'PPP')}
+                            {record.veterinarian && ` • Dr. ${record.veterinarian}`}
+                          </CardDescription>
+                        </div>
+                        {record.type && <Badge>{record.type}</Badge>}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {record.diagnosis && (
+                        <div className="mb-2">
+                          <h4 className="text-sm font-medium">Diagnosis</h4>
+                          <p className="text-sm text-muted-foreground">{record.diagnosis}</p>
+                        </div>
+                      )}
+                      
+                      {record.treatment && (
+                        <div className="mb-2">
+                          <h4 className="text-sm font-medium">Treatment</h4>
+                          <p className="text-sm text-muted-foreground">{record.treatment}</p>
+                        </div>
+                      )}
+                      
+                      {record.prescriptions && record.prescriptions.length > 0 && (
+                        <div className="mb-2">
+                          <h4 className="text-sm font-medium">Prescriptions</h4>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {record.prescriptions.map((prescription: string, index: number) => (
+                              <Badge key={index} variant="outline">{prescription}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="flex justify-between pt-0">
+                      <div className="text-sm text-muted-foreground flex items-center">
+                        <FileText className="h-3 w-3 mr-1" />
+                        Medical Record
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        View Details
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 border rounded-lg">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No Medical Records</h3>
+                <p className="text-muted-foreground mb-6">
+                  You haven't added any medical records for this pet yet.
+                </p>
+                <Button onClick={() => navigate(`/records/new?petId=${id}`)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add First Record
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+          
+          {/* Appointments Tab */}
+          <TabsContent value="appointments" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Appointments</h2>
+              <Button onClick={() => navigate(`/appointments/new?petId=${id}`)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Schedule Appointment
+              </Button>
+            </div>
+            
+            {/* Upcoming Appointments */}
+            <div>
+              <h3 className="text-lg font-medium mb-3">Upcoming Appointments</h3>
+              
+              {upcomingAppointments.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingAppointments.map(appointment => (
+                    <Card key={appointment.id}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(appointment.date), 'PPP')}
+                              {appointment.time && ` at ${appointment.time}`}
+                            </p>
+                          </div>
+                          <Badge variant="outline">{appointment.status}</Badge>
+                        </div>
+                        
+                        {appointment.notes && (
+                          <div className="mt-2 text-sm">
+                            <p>{appointment.notes}</p>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-end gap-2 mt-3">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash className="h-4 w-4 mr-1" />
+                                Cancel
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel Appointment?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to cancel this appointment? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDeleteAppointment(appointment.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Yes, cancel
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border rounded-lg">
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No upcoming appointments scheduled</p>
+                  <Button variant="outline" className="mt-4" onClick={() => navigate(`/appointments/new?petId=${id}`)}>
+                    Schedule an Appointment
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {/* Past Appointments */}
+            {pastAppointments.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-3">Past Appointments</h3>
+                <div className="space-y-3">
+                  {pastAppointments.slice(0, 5).map(appointment => (
+                    <Card key={appointment.id}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(appointment.date), 'PPP')}
+                              {appointment.time && ` at ${appointment.time}`}
+                            </p>
+                          </div>
+                          <Badge variant={
+                            appointment.status === 'completed' ? 'success' :
+                            appointment.status === 'canceled' ? 'destructive' :
+                            appointment.status === 'missed' ? 'destructive' : 'outline'
+                          }>
+                            {appointment.status}
+                          </Badge>
+                        </div>
+                        
+                        {appointment.notes && (
+                          <div className="mt-2 text-sm">
+                            <p>{appointment.notes}</p>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-end mt-3">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                          >
+                            View Details
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  {pastAppointments.length > 5 && (
+                    <div className="text-center">
+                      <Button variant="link" onClick={() => navigate('/calendar')}>
+                        View All Past Appointments
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
