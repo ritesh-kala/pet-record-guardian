@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -55,7 +54,6 @@ const MedicalRecords: React.FC = () => {
     fetchData();
   }, [toast]);
 
-  // Filter records based on search query and pet filter
   useEffect(() => {
     let filtered = records;
     
@@ -80,18 +78,15 @@ const MedicalRecords: React.FC = () => {
     setFilteredRecords(filtered);
   }, [searchQuery, petFilter, activeTab, records]);
 
-  // Get pet name by id
   const getPetName = (petId: string) => {
     const pet = pets.find(p => p.id === petId);
     return pet ? pet.name : 'Unknown Pet';
   };
 
-  // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
   };
 
-  // Handle pet filter change
   const handlePetFilterChange = (value: string) => {
     setPetFilter(value);
   };
@@ -162,11 +157,12 @@ const MedicalRecords: React.FC = () => {
                 {filteredRecords.map(record => (
                   <MedicalRecordCard 
                     key={record.id}
-                    recordId={record.id || ''}
+                    recordId={record.id}
                     petId={record.pet_id}
                     petName={getPetName(record.pet_id)}
                     date={format(new Date(record.visit_date), 'PPP')}
                     type={record.type || 'Other'}
+                    reason={record.reason_for_visit}
                     diagnosis={record.diagnosis || ''}
                     veterinarian={record.veterinarian || ''}
                     onClick={() => navigate(`/records/${record.id}`)}
@@ -197,11 +193,12 @@ const MedicalRecords: React.FC = () => {
                 {filteredRecords.map(record => (
                   <MedicalRecordCard 
                     key={record.id}
-                    recordId={record.id || ''}
+                    recordId={record.id}
                     petId={record.pet_id}
                     petName={getPetName(record.pet_id)}
                     date={format(new Date(record.visit_date), 'PPP')}
                     type={record.type || 'Other'}
+                    reason={record.reason_for_visit}
                     diagnosis={record.diagnosis || ''}
                     veterinarian={record.veterinarian || ''}
                     onClick={() => navigate(`/records/${record.id}`)}

@@ -446,9 +446,9 @@ export async function getAppointments(petId?: string, startDate?: string, endDat
     reason: item.reason,
     notes: item.notes,
     is_recurring: item.is_recurring || false,
-    recurrence_pattern: item.recurrence_pattern as 'daily' | 'weekly' | 'monthly' | 'yearly' | null,
+    recurrence_pattern: (item.recurrence_pattern as 'daily' | 'weekly' | 'monthly' | 'yearly' | null) || null,
     recurrence_end_date: item.recurrence_end_date,
-    status: item.status as 'scheduled' | 'completed' | 'canceled' | 'missed',
+    status: (item.status as 'scheduled' | 'completed' | 'canceled' | 'missed'),
     created_at: item.created_at,
     updated_at: item.updated_at
   })) || [];

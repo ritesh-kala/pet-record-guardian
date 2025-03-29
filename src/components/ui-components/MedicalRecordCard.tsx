@@ -6,16 +6,24 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface MedicalRecordCardProps {
+  recordId?: string;
+  petId?: string;
+  petName?: string;
   date: string;
   veterinarian: string;
-  reason: string;
+  reason?: string;
   diagnosis?: string;
   treatment?: string;
   hasAttachments?: boolean;
   status?: 'upcoming' | 'completed' | 'overdue';
+  type?: string;
+  onClick?: () => void;
 }
 
 const MedicalRecordCard: React.FC<MedicalRecordCardProps> = ({
+  recordId,
+  petId,
+  petName,
   date,
   veterinarian,
   reason,
@@ -23,14 +31,18 @@ const MedicalRecordCard: React.FC<MedicalRecordCardProps> = ({
   treatment,
   hasAttachments = false,
   status = 'completed',
+  type,
+  onClick,
 }) => {
   return (
     <Card className={cn(
-      "overflow-hidden border-l-4 transition-all duration-200 hover:shadow-md",
+      "overflow-hidden border-l-4 transition-all duration-200 hover:shadow-md cursor-pointer",
       status === 'upcoming' ? "border-l-info" : 
       status === 'overdue' ? "border-l-destructive" : 
       "border-l-success"
-    )}>
+    )}
+    onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -38,19 +50,33 @@ const MedicalRecordCard: React.FC<MedicalRecordCardProps> = ({
             <span className="text-sm font-medium">{date}</span>
           </div>
           
-          <Badge variant={
-            status === 'upcoming' ? "default" : 
-            status === 'overdue' ? "destructive" : 
-            "secondary"
-          } className="text-xs">
-            {status === 'upcoming' ? "Upcoming" : 
-             status === 'overdue' ? "Overdue" : 
-             "Completed"}
-          </Badge>
+          {type && (
+            <Badge variant="secondary" className="text-xs">
+              {type}
+            </Badge>
+          )}
+          
+          {status && (
+            <Badge variant={
+              status === 'upcoming' ? "default" : 
+              status === 'overdue' ? "destructive" : 
+              "secondary"
+            } className="text-xs">
+              {status === 'upcoming' ? "Upcoming" : 
+              status === 'overdue' ? "Overdue" : 
+              "Completed"}
+            </Badge>
+          )}
         </div>
         
         <div className="space-y-2">
-          <h4 className="font-medium">{reason}</h4>
+          {petName && (
+            <div className="text-sm font-medium">
+              <span className="text-muted-foreground">Pet:</span> {petName}
+            </div>
+          )}
+          
+          <h4 className="font-medium">{reason || 'Medical Visit'}</h4>
           
           {diagnosis && (
             <div className="text-sm">

@@ -7,14 +7,52 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { format } from 'date-fns';
-import { CalendarClock, Clock, Edit, FileText, Loader2, MoreVertical, Plus, PlusCircle, Trash2 } from 'lucide-react';
+import { 
+  CalendarClock, 
+  Clock, 
+  Edit, 
+  FileText, 
+  Loader2, 
+  MoreVertical, 
+  Plus, 
+  PlusCircle, 
+  Trash2,
+  Info,
+  Heart,
+  Calendar 
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { getPetById, getMedicalRecords, getAppointments, deleteAppointment, Appointment } from '@/lib/supabaseService';
+import { getPetById, getMedicalRecords, getAppointments, deleteAppointment, Appointment, getOwnerById } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
+
+const PawPrint = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="4" r="2"/>
+    <circle cx="18" cy="8" r="2"/>
+    <circle cx="4" cy="18" r="2"/>
+    <circle cx="18" cy="18" r="2"/>
+    <circle cx="4" cy="8" r="2"/>
+    <path d="M13 10l7 10"/>
+    <path d="M4 10l7 10"/>
+  </svg>
+);
+
+const Trash = () => Trash2;
 
 const PetDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -86,27 +124,19 @@ const PetDetails: React.FC = () => {
     }
   };
   
-  const getStatusBadge = (status: string) => {
-    let variant: "default" | "destructive" | "outline" | "secondary" = "default";
-    
+  const getStatusBadgeVariant = (status: string): "default" | "destructive" | "outline" | "secondary" => {
     switch (status) {
       case 'scheduled':
-        variant = 'outline';
-        break;
+        return 'outline';
       case 'completed':
-        variant = 'secondary';
-        break;
+        return 'secondary';
       case 'canceled':
-        variant = 'destructive';
-        break;
+        return 'destructive';
       case 'missed':
-        variant = 'default';
-        break;
+        return 'destructive';
       default:
-        variant = 'default';
+        return 'default';
     }
-    
-    return <Badge variant={variant}>{status}</Badge>;
   };
   
   if (isLoading) {
@@ -157,11 +187,11 @@ const PetDetails: React.FC = () => {
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16 border-2 border-primary">
               {pet.image_url ? (
-                <img src={pet.image_url} alt={pet.name} className="object-cover" />
+                <AvatarImage src={pet.image_url} alt={pet.name} className="object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-muted">
-                  <PawPrint className="h-8 w-8 text-muted-foreground" />
-                </div>
+                <AvatarFallback className="bg-muted">
+                  <PawPrint />
+                </AvatarFallback>
               )}
             </Avatar>
             
@@ -438,9 +468,9 @@ const PetDetails: React.FC = () => {
             <div>
               <h3 className="text-lg font-medium mb-3">Upcoming Appointments</h3>
               
-              {upcomingAppointments.length > 0 ? (
+              {upcomingAppointments && upcomingAppointments.length > 0 ? (
                 <div className="space-y-3">
-                  {upcomingAppointments.map(appointment => (
+                  {upcomingAppointments.map((appointment: any) => (
                     <Card key={appointment.id}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start">
@@ -473,7 +503,7 @@ const PetDetails: React.FC = () => {
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm">
-                                <Trash className="h-4 w-4 mr-1" />
+                                <Trash2 className="h-4 w-4 mr-1" />
                                 Cancel
                               </Button>
                             </AlertDialogTrigger>
@@ -512,11 +542,11 @@ const PetDetails: React.FC = () => {
             </div>
             
             {/* Past Appointments */}
-            {pastAppointments.length > 0 && (
+            {pastAppointments && pastAppointments.length > 0 && (
               <div>
                 <h3 className="text-lg font-medium mb-3">Past Appointments</h3>
                 <div className="space-y-3">
-                  {pastAppointments.slice(0, 5).map(appointment => (
+                  {pastAppointments.slice(0, 5).map((appointment: any) => (
                     <Card key={appointment.id}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start">
@@ -527,11 +557,7 @@ const PetDetails: React.FC = () => {
                               {appointment.time && ` at ${appointment.time}`}
                             </p>
                           </div>
-                          <Badge variant={
-                            appointment.status === 'completed' ? 'success' :
-                            appointment.status === 'canceled' ? 'destructive' :
-                            appointment.status === 'missed' ? 'destructive' : 'outline'
-                          }>
+                          <Badge variant={getStatusBadgeVariant(appointment.status)}>
                             {appointment.status}
                           </Badge>
                         </div>
