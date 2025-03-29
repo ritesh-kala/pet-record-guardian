@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 // Types
@@ -57,6 +58,21 @@ export interface MedicalRecord {
   createdAt?: Date;
   vaccinations_given?: string[] | null;
   type?: MedicalRecordType | null;
+}
+
+export interface Appointment {
+  id?: string;
+  pet_id: string;
+  date: string;
+  time?: string | null;
+  reason?: string | null;
+  notes?: string | null;
+  is_recurring?: boolean;
+  recurrence_pattern?: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
+  recurrence_end_date?: string | null;
+  status?: 'scheduled' | 'completed' | 'canceled' | 'missed';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Attachment {
@@ -187,6 +203,31 @@ export async function createOwner(owner: Owner): Promise<{ id: string }> {
   return { id: data.id };
 }
 
+export async function updateOwner(id: string, owner: Partial<Owner>): Promise<void> {
+  const updateData = {
+    name: owner.name,
+    email: owner.email,
+    phone: owner.phone,
+    address: owner.address,
+    notes: owner.notes,
+    emergency_contact_name: owner.emergency_contact_name,
+    emergency_contact_phone: owner.emergency_contact_phone,
+    preferred_vet_name: owner.preferred_vet_name,
+    preferred_vet_contact: owner.preferred_vet_contact,
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabase
+    .from('owners')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error updating owner:", error);
+    throw error;
+  }
+}
+
 // Pets
 export async function getPets(ownerId?: string): Promise<Pet[]> {
   let query = supabase
@@ -252,6 +293,41 @@ export async function createPet(pet: Pet): Promise<{ id: string }> {
   return { id: data.id };
 }
 
+export async function updatePet(id: string, pet: Partial<Pet>): Promise<void> {
+  // Map our interface to database fields
+  const petData = {
+    name: pet.name,
+    species: pet.species,
+    breed: pet.breed,
+    age: pet.age !== undefined ? Number(pet.age) : undefined,
+    weight: pet.weight !== undefined ? Number(pet.weight) : undefined,
+    gender: pet.gender,
+    date_of_birth: pet.date_of_birth ? timestampToISOString(pet.date_of_birth) : undefined,
+    microchip_id: pet.microchip_id,
+    insurance_provider: pet.insurance_provider,
+    policy_number: pet.policy_number,
+    notes: pet.notes,
+    updated_at: new Date().toISOString()
+  };
+
+  // Remove undefined fields
+  Object.keys(petData).forEach(key => {
+    if (petData[key as keyof typeof petData] === undefined) {
+      delete petData[key as keyof typeof petData];
+    }
+  });
+
+  const { error } = await supabase
+    .from('pets')
+    .update(petData)
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error updating pet:", error);
+    throw error;
+  }
+}
+
 // Medical Records
 export async function getMedicalRecords(petId?: string): Promise<MedicalRecord[]> {
   let query = supabase
@@ -313,6 +389,149 @@ export async function createMedicalRecord(record: MedicalRecord): Promise<{ id: 
   
   if (!data) throw new Error('Failed to create medical record');
   return { id: data.id };
+}
+
+export async function updateMedicalRecord(id: string, record: Partial<MedicalRecord>): Promise<void> {
+  // Map our interface to database fields
+  const recordData = {
+    visit_date: record.visit_date,
+    reason_for_visit: record.reason_for_visit,
+    diagnosis: record.diagnosis,
+    treatment: record.treatment,
+    prescriptions: record.prescriptions,
+    next_appointment: record.next_appointment,
+    veterinarian: record.veterinarian,
+    additional_notes: record.notes,
+    vaccinations_given: record.vaccinations_given,
+    updated_at: new Date().toISOString(),
+    record_type: record.type
+  };
+
+  // Remove undefined fields
+  Object.keys(recordData).forEach(key => {
+    if (recordData[key as keyof typeof recordData] === undefined) {
+      delete recordData[key as keyof typeof recordData];
+    }
+  });
+
+  const { error } = await supabase
+    .from('medical_records')
+    .update(recordData)
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error updating medical record:", error);
+    throw error;
+  }
+}
+
+// Appointments
+export async function getAppointments(petId?: string, startDate?: string, endDate?: string): Promise<Appointment[]> {
+  let query = supabase
+    .from('appointments')
+    .select('*');
+
+  if (petId) {
+    query = query.eq('pet_id', petId);
+  }
+
+  if (startDate) {
+    query = query.gte('date', startDate);
+  }
+
+  if (endDate) {
+    query = query.lte('date', endDate);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  
+  return data || [];
+}
+
+export async function getAppointmentById(id: string): Promise<Appointment> {
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  if (!data) throw new Error('Appointment not found');
+  
+  return data as Appointment;
+}
+
+export async function createAppointment(appointment: Appointment): Promise<{ id: string }> {
+  const appointmentData = {
+    pet_id: appointment.pet_id,
+    date: appointment.date,
+    time: appointment.time,
+    reason: appointment.reason,
+    notes: appointment.notes,
+    is_recurring: appointment.is_recurring || false,
+    recurrence_pattern: appointment.recurrence_pattern,
+    recurrence_end_date: appointment.recurrence_end_date,
+    status: appointment.status || 'scheduled',
+    created_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase
+    .from('appointments')
+    .insert([appointmentData])
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error("Error creating appointment:", error);
+    throw error;
+  }
+  
+  if (!data) throw new Error('Failed to create appointment');
+  return { id: data.id };
+}
+
+export async function updateAppointment(id: string, appointment: Partial<Appointment>): Promise<void> {
+  const appointmentData = {
+    date: appointment.date,
+    time: appointment.time,
+    reason: appointment.reason,
+    notes: appointment.notes,
+    is_recurring: appointment.is_recurring,
+    recurrence_pattern: appointment.recurrence_pattern,
+    recurrence_end_date: appointment.recurrence_end_date,
+    status: appointment.status,
+    updated_at: new Date().toISOString()
+  };
+
+  // Remove undefined fields
+  Object.keys(appointmentData).forEach(key => {
+    if (appointmentData[key as keyof typeof appointmentData] === undefined) {
+      delete appointmentData[key as keyof typeof appointmentData];
+    }
+  });
+
+  const { error } = await supabase
+    .from('appointments')
+    .update(appointmentData)
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error updating appointment:", error);
+    throw error;
+  }
+}
+
+export async function deleteAppointment(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('appointments')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error deleting appointment:", error);
+    throw error;
+  }
 }
 
 // Attachments

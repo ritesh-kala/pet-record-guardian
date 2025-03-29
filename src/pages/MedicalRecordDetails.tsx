@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -89,6 +90,12 @@ const MedicalRecordDetails: React.FC = () => {
     fetchRecordDetails();
   }, [id, toast]);
   
+  const handleEditRecord = () => {
+    if (id) {
+      navigate(`/records/edit/${id}`);
+    }
+  };
+  
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Not specified';
     try {
@@ -176,7 +183,7 @@ const MedicalRecordDetails: React.FC = () => {
             description={`${formatDate(record.visit_date)}`}
             buttonText="Edit Record"
             buttonIcon={<Edit className="h-4 w-4" />}
-            onButtonClick={() => console.log('Edit record clicked')}
+            onButtonClick={handleEditRecord}
           />
         </div>
         

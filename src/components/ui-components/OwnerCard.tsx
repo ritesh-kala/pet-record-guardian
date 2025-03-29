@@ -1,10 +1,11 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Mail, Phone, MapPin, Eye, PawPrint, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getPets } from '@/lib/supabaseService';
 
 interface OwnerCardProps {
   id: string;
@@ -12,7 +13,6 @@ interface OwnerCardProps {
   email: string;
   phone: string;
   address: string;
-  petCount: number;
 }
 
 const OwnerCard: React.FC<OwnerCardProps> = ({
@@ -21,9 +21,22 @@ const OwnerCard: React.FC<OwnerCardProps> = ({
   email,
   phone,
   address,
-  petCount,
 }) => {
   const navigate = useNavigate();
+  const [petCount, setPetCount] = useState(0);
+  
+  useEffect(() => {
+    const fetchPetCount = async () => {
+      try {
+        const pets = await getPets(id);
+        setPetCount(pets.length);
+      } catch (error) {
+        console.error('Error fetching pet count:', error);
+      }
+    };
+    
+    fetchPetCount();
+  }, [id]);
   
   return (
     <Card className="hover-lift">

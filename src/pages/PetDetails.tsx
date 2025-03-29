@@ -88,6 +88,12 @@ const PetDetails: React.FC = () => {
     fetchPetDetails();
   }, [id, toast]);
 
+  const handleEditPet = () => {
+    if (id) {
+      navigate(`/pets/edit/${id}`);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMMM d, yyyy');
@@ -220,7 +226,7 @@ const PetDetails: React.FC = () => {
             description={`${pet.breed || 'Unknown breed'} · ${pet.age || '?'} years old`}
             buttonText="Edit Pet"
             buttonIcon={<Edit className="h-4 w-4" />}
-            onButtonClick={() => console.log('Edit pet clicked')}
+            onButtonClick={handleEditPet}
           />
         </div>
         
@@ -329,19 +335,30 @@ const PetDetails: React.FC = () => {
                     <Stethoscope className="h-5 w-5 text-primary" />
                     <h3 className="text-lg font-medium">Medical Records</h3>
                   </div>
-                  <Button 
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => navigate(`/records/new/${pet.id}`)}
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add Record
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      className="gap-1"
+                      onClick={() => navigate(`/records?petId=${pet.id}`)}
+                    >
+                      <FileText className="h-3 w-3" />
+                      View All
+                    </Button>
+                    <Button 
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => navigate(`/records/new?petId=${pet.id}`)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add Record
+                    </Button>
+                  </div>
                 </div>
                 
                 {sortedRecords.length > 0 ? (
                   <div className="space-y-4">
-                    {sortedRecords.map(record => (
+                    {sortedRecords.slice(0, 5).map(record => (
                       <div 
                         key={record.id}
                         className="p-4 border border-border rounded-md hover:bg-accent/50 cursor-pointer transition-colors"
@@ -367,6 +384,16 @@ const PetDetails: React.FC = () => {
                         </p>
                       </div>
                     ))}
+                    {sortedRecords.length > 5 && (
+                      <div className="text-center mt-4">
+                        <Button 
+                          variant="link" 
+                          onClick={() => navigate(`/records?petId=${pet.id}`)}
+                        >
+                          View All Records
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-10 text-muted-foreground">

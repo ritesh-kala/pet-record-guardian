@@ -12,12 +12,15 @@ import Index from "./pages/Index";
 import Owners from "./pages/Owners";
 import OwnerDetails from "./pages/OwnerDetails";
 import NewOwner from "./pages/NewOwner";
+import EditOwner from "./pages/EditOwner";
 import Pets from "./pages/Pets";
 import PetDetails from "./pages/PetDetails";
 import NewPet from "./pages/NewPet";
+import EditPet from "./pages/EditPet";
 import MedicalRecords from "./pages/MedicalRecords";
 import MedicalRecordDetails from "./pages/MedicalRecordDetails";
 import NewMedicalRecord from "./pages/NewMedicalRecord";
+import EditMedicalRecord from "./pages/EditMedicalRecord";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -58,6 +61,11 @@ const App = () => (
                 <NewOwner />
               </ProtectedRoute>
             } />
+            <Route path="/owners/edit/:id" element={
+              <ProtectedRoute>
+                <EditOwner />
+              </ProtectedRoute>
+            } />
             <Route path="/pets" element={
               <ProtectedRoute>
                 <Pets />
@@ -73,6 +81,11 @@ const App = () => (
                 <NewPet />
               </ProtectedRoute>
             } />
+            <Route path="/pets/edit/:id" element={
+              <ProtectedRoute>
+                <EditPet />
+              </ProtectedRoute>
+            } />
             <Route path="/records" element={
               <ProtectedRoute>
                 <MedicalRecords />
@@ -86,6 +99,11 @@ const App = () => (
             <Route path="/records/new" element={
               <ProtectedRoute>
                 <NewMedicalRecord />
+              </ProtectedRoute>
+            } />
+            <Route path="/records/edit/:id" element={
+              <ProtectedRoute>
+                <EditMedicalRecord />
               </ProtectedRoute>
             } />
             <Route path="/profile" element={
