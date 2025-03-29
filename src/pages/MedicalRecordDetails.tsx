@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -18,8 +17,7 @@ import {
   Loader2,
   Image as ImageIcon,
   FileImage,
-  File,
-  FilePdf
+  File
 } from 'lucide-react';
 import { 
   getMedicalRecordById, 
@@ -53,16 +51,13 @@ const MedicalRecordDetails: React.FC = () => {
       try {
         setIsLoading(true);
         
-        // Fetch medical record
         const recordData = await getMedicalRecordById(id);
         setRecord(recordData);
         
-        // Fetch pet data
         if (recordData.pet_id) {
           const petData = await getPetById(recordData.pet_id);
           setPet(petData);
           
-          // Fetch owner name
           if (petData.owner_id) {
             const { data: ownerData } = await supabase
               .from('owners')
@@ -76,7 +71,6 @@ const MedicalRecordDetails: React.FC = () => {
           }
         }
         
-        // Fetch attachments
         const attachmentData = await getAttachmentsByRecordId(id);
         setAttachments(attachmentData);
         
@@ -131,7 +125,7 @@ const MedicalRecordDetails: React.FC = () => {
     if (type.includes('image')) {
       return <FileImage className="h-5 w-5 text-blue-500" />;
     } else if (type.includes('pdf')) {
-      return <FilePdf className="h-5 w-5 text-red-500" />;
+      return <FileText className="h-5 w-5 text-red-500" />;
     } else {
       return <File className="h-5 w-5 text-gray-500" />;
     }
@@ -399,7 +393,6 @@ const MedicalRecordDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Attachment Viewer Dialog */}
       <Dialog 
         open={selectedAttachment !== null} 
         onOpenChange={(open) => !open && setSelectedAttachment(null)}
