@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -210,7 +209,9 @@ const Index: React.FC = () => {
               {records.map((record) => (
                 <Link key={record.id} to={`/records/${record.id}`} className="block hover:no-underline">
                   <MedicalRecordCard 
-                    id={record.id}
+                    recordId={record.id}
+                    petId={record.pet_id}
+                    petName={record.pet_name || record.pet?.name || 'Unknown'}
                     date={new Date(record.visit_date).toLocaleDateString('en-US', {
                       month: 'long',
                       day: 'numeric',
@@ -222,6 +223,7 @@ const Index: React.FC = () => {
                     treatment={record.treatment}
                     hasAttachments={false}
                     status="completed"
+                    type={record.type || 'Visit'}
                   />
                 </Link>
               ))}
