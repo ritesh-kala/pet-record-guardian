@@ -33,7 +33,33 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { supabase } from '@/integrations/supabase/client';
-import { Appointment, Pet, Owner } from '@/integrations/supabase/types';
+
+// Define the types locally since they're not available in types.ts
+interface Owner {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+interface Pet {
+  id: string;
+  name: string;
+  species: string;
+  breed?: string;
+  image_url?: string;
+}
+
+interface Appointment {
+  id: string;
+  pet_id: string;
+  owner_id?: string;
+  appointment_date: string;
+  appointment_time?: string;
+  reason?: string;
+  notes?: string;
+  status?: string;
+}
 
 type AppointmentWithDetails = Appointment & {
   pet?: Pet;

@@ -15,8 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { format, isPast, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { getAllNotifications, markNotificationAsRead } from '@/lib/notificationService';
-import { Notification } from '@/integrations/supabase/types';
+import { getAllNotifications, markNotificationAsRead, Notification } from '@/lib/notificationService';
 
 const NotificationsMenu: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
