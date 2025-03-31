@@ -21,7 +21,10 @@ const NewAppointment: React.FC = () => {
 
   useEffect(() => {
     const fetchPetDetails = async () => {
-      if (!petId) return;
+      if (!petId) {
+        navigate('/pets');
+        return;
+      }
       
       try {
         setIsLoading(true);
@@ -34,18 +37,14 @@ const NewAppointment: React.FC = () => {
           description: 'Failed to load pet details',
           variant: 'destructive'
         });
+        navigate('/pets');
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchPetDetails();
-  }, [petId, toast]);
-
-  if (!petId) {
-    navigate('/pets');
-    return null;
-  }
+  }, [petId, toast, navigate]);
 
   return (
     <Layout>
