@@ -1,466 +1,386 @@
-import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, isSameDay, parseISO, isToday } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import SectionHeader from '@/components/ui-components/SectionHeader';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Calendar as CalendarIcon, Clock, Edit, Trash2, Info } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { getAppointments, getMedicalRecords, getPets, deleteAppointment, Appointment, MedicalRecord, Pet } from '@/lib/supabaseService';
-import { useToast } from '@/components/ui/use-toast';
 
-interface DayMetadata {
-  date: Date;
-  appointments: Appointment[];
-  medicalRecords: MedicalRecord[];
-}
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { format, parseISO, isBefore, isAfter, isToday, addDays } from 'date-fns';
+import { 
+  Calendar as CalendarIcon, 
+  ChevronLeft, 
+  ChevronRight, 
+  MoreHorizontal,
+  Plus, 
+  ArrowLeft
+} from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import SectionHeader from '@/components/ui-components/SectionHeader';
+import { supabase } from '@/integrations/supabase/client';
+import { Appointment, Pet, Owner } from '@/integrations/supabase/types';
+
+type AppointmentWithDetails = Appointment & {
+  pet?: Pet;
+  owner?: Owner;
+};
+
+type AppointmentFilter = 'upcoming' | 'past' | 'all';
 
 const CalendarView: React.FC = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [date, setDate] = useState<Date>(new Date());
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPet, setSelectedPet] = useState<string>('all');
   const [pets, setPets] = useState<Pet[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedDay, setSelectedDay] = useState<DayMetadata | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
-  const [appointmentView, setAppointmentView] = useState<'upcoming' | 'past' | 'all'>('upcoming');
+  const [filter, setFilter] = useState<AppointmentFilter>('upcoming');
+  const [appointmentCounts, setAppointmentCounts] = useState<{
+    upcoming: number;
+    past: number;
+    all: number;
+  }>({
+    upcoming: 0,
+    past: 0,
+    all: 0,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
-        setIsLoading(true);
-        
-        const [appointmentsData, medicalRecordsData, petsData] = await Promise.all([
-          getAppointments(),
-          getMedicalRecords(),
-          getPets()
-        ]);
-        
-        setAppointments(appointmentsData);
-        setMedicalRecords(medicalRecordsData);
+        // Fetch all pets 
+        const { data: petsData, error: petsError } = await supabase
+          .from('pets')
+          .select('*')
+          .order('name');
+
+        if (petsError) throw petsError;
         setPets(petsData);
+
+        // Fetch appointments with related data
+        const { data, error } = await supabase
+          .from('appointments')
+          .select(`
+            *,
+            pet:pet_id (id, name, species, breed, image_url),
+            owner:owner_id (id, name, email, phone)
+          `)
+          .order('appointment_date', { ascending: false })
+          .order('appointment_time', { ascending: false });
+
+        if (error) throw error;
+
+        // Cast the data to the correct type
+        const appointmentsWithDetails = data as unknown as AppointmentWithDetails[];
+        
+        // Sort - newest first
+        appointmentsWithDetails.sort((a, b) => {
+          const dateA = new Date(`${a.appointment_date}T${a.appointment_time || '00:00:00'}`);
+          const dateB = new Date(`${b.appointment_date}T${b.appointment_time || '00:00:00'}`);
+          return dateB.getTime() - dateA.getTime();
+        });
+        
+        setAppointments(appointmentsWithDetails);
+        
+        // Calculate appointment counts
+        const now = new Date();
+        const upcoming = appointmentsWithDetails.filter(app => {
+          const appDate = parseISO(`${app.appointment_date}T${app.appointment_time || '00:00:00'}`);
+          return isAfter(appDate, now) || isToday(appDate);
+        }).length;
+        
+        const past = appointmentsWithDetails.filter(app => {
+          const appDate = parseISO(`${app.appointment_date}T${app.appointment_time || '00:00:00'}`);
+          return isBefore(appDate, now) && !isToday(appDate);
+        }).length;
+        
+        setAppointmentCounts({
+          upcoming,
+          past,
+          all: appointmentsWithDetails.length
+        });
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load data. Please try again.',
-          variant: 'destructive'
-        });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    
+
     fetchData();
-  }, [toast]);
+  }, []);
 
-  useEffect(() => {
-    const dayMetadataMap = new Map<string, DayMetadata>();
-    
-    appointments.forEach(appointment => {
-      const appointmentDate = format(new Date(appointment.date), 'yyyy-MM-dd');
-      if (!dayMetadataMap.has(appointmentDate)) {
-        dayMetadataMap.set(appointmentDate, {
-          date: new Date(appointment.date),
-          appointments: [],
-          medicalRecords: []
-        });
+  const filteredAppointments = appointments
+    .filter(appointment => {
+      // Filter by pet if a specific pet is selected
+      if (selectedPet !== 'all' && appointment.pet_id !== selectedPet) {
+        return false;
       }
-      dayMetadataMap.get(appointmentDate)?.appointments.push(appointment);
-    });
-    
-    medicalRecords.forEach(record => {
-      const recordDate = format(new Date(record.visit_date), 'yyyy-MM-dd');
-      if (!dayMetadataMap.has(recordDate)) {
-        dayMetadataMap.set(recordDate, {
-          date: new Date(record.visit_date),
-          appointments: [],
-          medicalRecords: []
-        });
+      
+      // Filter by date status
+      const appDate = parseISO(`${appointment.appointment_date}T${appointment.appointment_time || '00:00:00'}`);
+      const now = new Date();
+      
+      if (filter === 'upcoming') {
+        return isAfter(appDate, now) || isToday(appDate);
+      } else if (filter === 'past') {
+        return isBefore(appDate, now) && !isToday(appDate);
       }
-      dayMetadataMap.get(recordDate)?.medicalRecords.push(record);
+      
+      return true;
     });
-    
-    setDayMetadata(dayMetadataMap);
-  }, [appointments, medicalRecords]);
 
-  const [dayMetadata, setDayMetadata] = useState(new Map<string, DayMetadata>());
+  const getAppointmentsForDate = (selectedDate: Date) => {
+    return appointments.filter(appointment => {
+      const appDate = parseISO(appointment.appointment_date);
+      return (
+        appDate.getDate() === selectedDate.getDate() &&
+        appDate.getMonth() === selectedDate.getMonth() &&
+        appDate.getFullYear() === selectedDate.getFullYear()
+      );
+    });
+  };
 
-  const handleDateSelect = (selectedDate: Date | undefined) => {
-    if (!selectedDate) return;
+  const selectedDateAppointments = getAppointmentsForDate(date);
+
+  const getStatusBadge = (appointment: AppointmentWithDetails) => {
+    const appDate = parseISO(`${appointment.appointment_date}T${appointment.appointment_time || '00:00:00'}`);
+    const now = new Date();
     
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const metadata = dayMetadata.get(dateStr);
-    
-    if (metadata) {
-      setSelectedDay({
-        date: selectedDate,
-        appointments: metadata.appointments,
-        medicalRecords: metadata.medicalRecords
-      });
+    if (appointment.status === 'completed') {
+      return <Badge variant="outline" className="bg-green-100">Completed</Badge>;
+    } else if (appointment.status === 'cancelled') {
+      return <Badge variant="outline" className="bg-red-100">Cancelled</Badge>;
+    } else if (isBefore(appDate, now) && !isToday(appDate)) {
+      return <Badge variant="outline" className="bg-amber-100">Overdue</Badge>;
+    } else if (isToday(appDate)) {
+      return <Badge variant="outline" className="bg-blue-100">Today</Badge>;
+    } else if (isAfter(appDate, now) && isBefore(appDate, addDays(now, 3))) {
+      return <Badge variant="outline" className="bg-purple-100">Soon</Badge>;
     } else {
-      setSelectedDay({
-        date: selectedDate,
-        appointments: [],
-        medicalRecords: []
-      });
+      return <Badge variant="outline">Scheduled</Badge>;
     }
   };
 
-  const getAppointmentStatusVariant = (status: string) => {
-    switch (status) {
-      case 'scheduled': return 'outline';
-      case 'completed': return 'secondary';
-      case 'canceled': return 'destructive';
-      case 'missed': return 'default';
-      default: return 'outline';
-    }
+  const getAppointmentTime = (appointment: AppointmentWithDetails) => {
+    if (!appointment.appointment_time) return 'No time set';
+    return format(parseISO(`${appointment.appointment_date}T${appointment.appointment_time}`), 'h:mm a');
   };
 
-  const handleDeleteAppointment = (appointmentId: string) => {
-    setAppointmentToDelete(appointmentId);
-    setIsDeleteDialogOpen(true);
+  const handleFilterChange = (value: string) => {
+    setFilter(value as AppointmentFilter);
   };
-
-  const confirmDeleteAppointment = async () => {
-    if (appointmentToDelete) {
-      try {
-        await deleteAppointment(appointmentToDelete);
-        setAppointments(appointments.filter(appointment => appointment.id !== appointmentToDelete));
-        toast({
-          title: 'Success',
-          description: 'Appointment deleted successfully',
-        });
-      } catch (error) {
-        console.error('Error deleting appointment:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to delete appointment',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsDeleteDialogOpen(false);
-        setAppointmentToDelete(null);
-        setSelectedDay(null);
-      }
-    }
-  };
-
-  // Filter appointments based on view mode
-  const filteredAppointments = appointments.filter(appointment => {
-    const appointmentDate = new Date(appointment.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (appointmentView === 'upcoming') {
-      return appointmentDate >= today;
-    } else if (appointmentView === 'past') {
-      return appointmentDate < today;
-    }
-    
-    return true; // 'all' view
-  }).sort((a, b) => {
-    return new Date(b.date).getTime() - new Date(a.date).getTime();
-  });
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="container max-w-7xl mx-auto p-4 space-y-6">
+      <div className="flex items-center justify-between">
+        <Button 
+          variant="ghost" 
+          className="gap-1 px-2" 
+          onClick={() => navigate('/records')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
         <SectionHeader 
-          title="Calendar" 
-          description="View and manage appointments and medical records" 
-          buttonText="Back"
-          buttonLink="/records"
+          title="Appointment Calendar" 
+          description="Manage and view all scheduled appointments"
         />
-        
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-medium">Appointment Calendar</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/calendar?view=month')}
-                    className="gap-1"
-                  >
-                    <CalendarIcon className="h-4 w-4" />
-                    Month View
-                  </Button>
-                </div>
-                
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={handleDateSelect}
-                  className="rounded-md border"
-                  modifiers={{
-                    hasEvent: (date) => {
-                      const dateStr = format(date, 'yyyy-MM-dd');
-                      return dayMetadata.has(dateStr) && (
-                        dayMetadata.get(dateStr)?.appointments.length > 0 ||
-                        dayMetadata.get(dateStr)?.medicalRecords.length > 0
-                      );
-                    },
-                    today: isToday
-                  }}
-                  modifiersStyles={{
-                    hasEvent: {
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      fontWeight: 'bold'
-                    },
-                    today: {
-                      borderColor: 'rgb(59, 130, 246)',
-                      borderWidth: '2px'
-                    }
-                  }}
-                />
-                
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button 
-                    size="sm" 
-                    onClick={() => navigate('/appointments/new')}
-                    className="gap-1"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    New Appointment
-                  </Button>
-                  
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => navigate('/records/new')}
-                    className="gap-1"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    New Medical Record
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <div className="lg:col-span-1 space-y-6">
-              <Card>
-                <CardContent className="p-4 sm:p-6">
-                  <h3 className="text-lg font-medium mb-4">Appointments</h3>
-                  
-                  <Tabs defaultValue="upcoming" value={appointmentView} onValueChange={setAppointmentView}>
-                    <TabsList className="mb-4 w-full">
-                      <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                      <TabsTrigger value="past">Past</TabsTrigger>
-                      <TabsTrigger value="all">All</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="upcoming" className="space-y-3">
-                      {filteredAppointments.length > 0 ? (
-                        filteredAppointments.map(appointment => (
-                          <div 
-                            key={appointment.id}
-                            className="p-3 border rounded-md hover:bg-accent cursor-pointer transition-colors"
-                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                          >
-                            <div className="flex justify-between mb-1">
-                              <span className="font-medium">{appointment.reason || 'Appointment'}</span>
-                              <Badge variant={getAppointmentStatusVariant(appointment.status || 'scheduled')}>
-                                {appointment.status || 'scheduled'}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                {pets.find(p => p.id === appointment.pet_id)?.name || 'Unknown pet'}
-                              </span>
-                              <span className="flex items-center">
-                                <CalendarIcon className="h-3 w-3 mr-1 inline" />
-                                {format(new Date(appointment.date), 'MMM d, yyyy')}
-                                {appointment.time && ` • ${appointment.time}`}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <CalendarIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                          <p>No upcoming appointments</p>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => navigate('/appointments/new')}
-                          >
-                            Schedule an appointment
-                          </Button>
-                        </div>
-                      )}
-                    </TabsContent>
-                    
-                    <TabsContent value="past" className="space-y-3">
-                      {filteredAppointments.length > 0 ? (
-                        filteredAppointments.map(appointment => (
-                          <div 
-                            key={appointment.id}
-                            className="p-3 border rounded-md hover:bg-accent cursor-pointer transition-colors"
-                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                          >
-                            <div className="flex justify-between mb-1">
-                              <span className="font-medium">{appointment.reason || 'Appointment'}</span>
-                              <Badge variant={getAppointmentStatusVariant(appointment.status || 'scheduled')}>
-                                {appointment.status || 'scheduled'}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                {pets.find(p => p.id === appointment.pet_id)?.name || 'Unknown pet'}
-                              </span>
-                              <span className="flex items-center">
-                                <CalendarIcon className="h-3 w-3 mr-1 inline" />
-                                {format(new Date(appointment.date), 'MMM d, yyyy')}
-                                {appointment.time && ` • ${appointment.time}`}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <CalendarIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                          <p>No past appointments</p>
-                        </div>
-                      )}
-                    </TabsContent>
-                    
-                    <TabsContent value="all" className="space-y-3">
-                      {filteredAppointments.length > 0 ? (
-                        filteredAppointments.map(appointment => (
-                          <div 
-                            key={appointment.id}
-                            className="p-3 border rounded-md hover:bg-accent cursor-pointer transition-colors"
-                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                          >
-                            <div className="flex justify-between mb-1">
-                              <span className="font-medium">{appointment.reason || 'Appointment'}</span>
-                              <Badge variant={getAppointmentStatusVariant(appointment.status || 'scheduled')}>
-                                {appointment.status || 'scheduled'}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                {pets.find(p => p.id === appointment.pet_id)?.name || 'Unknown pet'}
-                              </span>
-                              <span className="flex items-center">
-                                <CalendarIcon className="h-3 w-3 mr-1 inline" />
-                                {format(new Date(appointment.date), 'MMM d, yyyy')}
-                                {appointment.time && ` • ${appointment.time}`}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <CalendarIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                          <p>No appointments found</p>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => navigate('/appointments/new')}
-                          >
-                            Schedule an appointment
-                          </Button>
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
-        
-        {/* Day Dialog */}
-        <Dialog open={!!selectedDay} onOpenChange={() => setSelectedDay(null)}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>{selectedDay ? format(selectedDay.date, 'PPP') : 'Select a day'}</DialogTitle>
-              <DialogDescription>
-                {selectedDay ? (
-                  <>
-                    <h4 className="mb-2 font-semibold">Appointments:</h4>
-                    {selectedDay.appointments.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-1">
-                        {selectedDay.appointments.map(appointment => (
-                          <li key={appointment.id} className="flex items-center justify-between">
-                            {appointment.reason || 'Appointment'}
-                            <div className="flex gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => handleDeleteAppointment(appointment.id!)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-muted-foreground">No appointments for this day.</p>
-                    )}
-                    
-                    <h4 className="mt-4 font-semibold">Medical Records:</h4>
-                    {selectedDay.medicalRecords.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-1">
-                        {selectedDay.medicalRecords.map(record => (
-                          <li key={record.id}>
-                            {record.reason_for_visit || 'Medical Record'}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-muted-foreground">No medical records for this day.</p>
-                    )}
-                  </>
-                ) : (
-                  'Select a day to view appointments and medical records.'
-                )}
-              </DialogDescription>
-            </DialogHeader>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the appointment from our servers.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteAppointment}>Continue</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button 
+          className="gap-1"
+          onClick={() => navigate('/appointments/new')}
+        >
+          <Plus className="h-4 w-4" />
+          Schedule Appointment
+        </Button>
       </div>
-    </Layout>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <Card className="col-span-1 md:col-span-2">
+          <CardHeader>
+            <CardTitle>Calendar</CardTitle>
+            <CardDescription>Select a date to view appointments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={(date) => date && setDate(date)}
+              className="rounded-md border"
+            />
+            
+            <div className="mt-6 space-y-4">
+              <div className="font-medium">
+                {selectedDateAppointments.length > 0 ? (
+                  <h3>
+                    {selectedDateAppointments.length} appointment{selectedDateAppointments.length !== 1 ? 's' : ''} on {format(date, 'MMMM d, yyyy')}
+                  </h3>
+                ) : (
+                  <h3>No appointments on {format(date, 'MMMM d, yyyy')}</h3>
+                )}
+              </div>
+              
+              {selectedDateAppointments.map((appointment) => (
+                <Card key={appointment.id} className="p-3 bg-accent/20">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium">{appointment.pet?.name || 'Unknown Pet'}</div>
+                      <div className="text-sm text-muted-foreground">{getAppointmentTime(appointment)}</div>
+                      <div className="text-sm text-muted-foreground">{appointment.reason}</div>
+                    </div>
+                    {getStatusBadge(appointment)}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="col-span-1 md:col-span-3">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Appointments</CardTitle>
+                <CardDescription>View and manage upcoming and past appointments</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="px-6 pb-3">
+              <div className="flex justify-between items-center">
+                <Tabs 
+                  value={filter} 
+                  onValueChange={handleFilterChange} 
+                  className="w-full"
+                >
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="upcoming">
+                      Upcoming ({appointmentCounts.upcoming})
+                    </TabsTrigger>
+                    <TabsTrigger value="past">
+                      Past ({appointmentCounts.past})
+                    </TabsTrigger>
+                    <TabsTrigger value="all">
+                      All ({appointmentCounts.all})
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              
+              <div className="mt-3 flex justify-between items-center">
+                <div className="flex space-x-2 items-center">
+                  <span className="text-sm">Filter by pet:</span>
+                  <Select 
+                    value={selectedPet} 
+                    onValueChange={(value) => setSelectedPet(value)}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select a pet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="all">All Pets</SelectItem>
+                        {pets.map((pet) => (
+                          <SelectItem key={pet.id} value={pet.id}>
+                            {pet.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="border-t">
+              {loading ? (
+                <div className="p-6 text-center">Loading appointments...</div>
+              ) : filteredAppointments.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-muted-foreground">No appointments found with the current filters.</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {filteredAppointments.map((appointment) => (
+                    <div key={appointment.id} className="p-4 hover:bg-accent/5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex gap-3">
+                          <div className="w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-accent/30 border">
+                            {appointment.pet?.image_url ? (
+                              <img 
+                                src={appointment.pet.image_url} 
+                                alt={appointment.pet?.name || 'Pet'} 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                <CalendarIcon className="h-6 w-6" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium">{appointment.pet?.name || 'Unknown Pet'}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {format(parseISO(appointment.appointment_date), 'MMMM d, yyyy')} · {getAppointmentTime(appointment)}
+                            </div>
+                            <div className="text-sm">{appointment.reason}</div>
+                            {appointment.notes && (
+                              <div className="text-sm text-muted-foreground mt-1">{appointment.notes}</div>
+                            )}
+                            <div className="flex gap-1 mt-2">
+                              {getStatusBadge(appointment)}
+                              {appointment.owner && (
+                                <Badge variant="outline">
+                                  Owner: {appointment.owner.name}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={() => navigate(`/appointments/${appointment.id}`)}
+                            >
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                            >
+                              Edit Appointment
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 };
 

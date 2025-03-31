@@ -1,230 +1,157 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bell, Calendar, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Bell } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { format, isBefore, addDays } from 'date-fns';
-import { getAppointments, Appointment } from '@/lib/supabaseService';
+import { useToast } from '@/components/ui/use-toast';
+import { format, isPast, parseISO } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { getAllNotifications, markNotificationAsRead } from '@/lib/notificationService';
+import { Notification } from '@/integrations/supabase/types';
 
 const NotificationsMenu: React.FC = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<{
-    id: string;
-    type: 'upcoming' | 'overdue';
-    title: string;
-    description: string;
-    date: Date;
-    petId: string;
-    appointmentId?: string;
-  }[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        setIsLoading(true);
-        
-        // Fetch all upcoming appointments
-        const appointmentsData = await getAppointments();
-        const now = new Date();
-        const tomorrow = addDays(now, 1);
-        const nextWeek = addDays(now, 7);
-        
-        const notificationsList: {
-          id: string;
-          type: 'upcoming' | 'overdue';
-          title: string;
-          description: string;
-          date: Date;
-          petId: string;
-          appointmentId?: string;
-        }[] = [];
-        
-        appointmentsData.forEach(appointment => {
-          const appointmentDate = new Date(appointment.date);
-          
-          if (appointment.status === 'scheduled') {
-            // Overdue appointments
-            if (isBefore(appointmentDate, now) && appointment.status !== 'completed') {
-              notificationsList.push({
-                id: `overdue-${appointment.id}`,
-                type: 'overdue',
-                title: 'Missed Appointment',
-                description: `Appointment for ${appointment.reason || 'checkup'} was missed`,
-                date: appointmentDate,
-                petId: appointment.pet_id,
-                appointmentId: appointment.id,
-              });
-            }
-            
-            // Today's appointments
-            else if (
-              appointmentDate.getDate() === now.getDate() &&
-              appointmentDate.getMonth() === now.getMonth() &&
-              appointmentDate.getFullYear() === now.getFullYear()
-            ) {
-              notificationsList.push({
-                id: `today-${appointment.id}`,
-                type: 'upcoming',
-                title: 'Appointment Today',
-                description: `${appointment.reason || 'Appointment'} ${appointment.time ? `at ${appointment.time}` : 'today'}`,
-                date: appointmentDate,
-                petId: appointment.pet_id,
-                appointmentId: appointment.id,
-              });
-            }
-            
-            // Tomorrow's appointments
-            else if (
-              appointmentDate.getDate() === tomorrow.getDate() &&
-              appointmentDate.getMonth() === tomorrow.getMonth() &&
-              appointmentDate.getFullYear() === tomorrow.getFullYear()
-            ) {
-              notificationsList.push({
-                id: `tomorrow-${appointment.id}`,
-                type: 'upcoming',
-                title: 'Appointment Tomorrow',
-                description: `${appointment.reason || 'Appointment'} ${appointment.time ? `at ${appointment.time}` : ''}`,
-                date: appointmentDate,
-                petId: appointment.pet_id,
-                appointmentId: appointment.id,
-              });
-            }
-            
-            // Next 7 days appointments
-            else if (
-              appointmentDate > now &&
-              appointmentDate <= nextWeek
-            ) {
-              notificationsList.push({
-                id: `upcoming-${appointment.id}`,
-                type: 'upcoming',
-                title: 'Upcoming Appointment',
-                description: `${appointment.reason || 'Appointment'} on ${format(appointmentDate, 'MMM d')}`,
-                date: appointmentDate,
-                petId: appointment.pet_id,
-                appointmentId: appointment.id,
-              });
-            }
-          }
-        });
-        
-        // Sort notifications with overdue first, then by date
-        notificationsList.sort((a, b) => {
-          if (a.type === 'overdue' && b.type !== 'overdue') return -1;
-          if (a.type !== 'overdue' && b.type === 'overdue') return 1;
-          return a.date.getTime() - b.date.getTime();
-        });
-        
-        setNotifications(notificationsList);
+        const notifs = await getAllNotifications();
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter(n => !n.read).length);
       } catch (error) {
-        console.error('Error fetching notifications:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Failed to fetch notifications:', error);
       }
     };
-    
+
     fetchNotifications();
     
-    // Refresh notifications every minute
+    // Poll for new notifications every minute
     const interval = setInterval(fetchNotifications, 60000);
-    
     return () => clearInterval(interval);
   }, []);
-  
-  const navigateToAppointment = (appointmentId?: string) => {
-    if (appointmentId) {
-      navigate(`/appointments/${appointmentId}/edit`);
-    } else {
-      navigate('/calendar');
+
+  const handleNotificationClick = async (notification: Notification) => {
+    try {
+      if (!notification.read) {
+        await markNotificationAsRead(notification.id);
+        setNotifications(prev => 
+          prev.map(n => 
+            n.id === notification.id ? { ...n, read: true } : n
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      
+      // Navigate based on notification type
+      if (notification.appointment_id) {
+        // For appointment-related notifications
+        if (notification.type === 'scheduled') {
+          navigate(`/calendar`);
+        } else if (notification.type === 'reminder') {
+          navigate(`/calendar`);
+        } else {
+          navigate(`/calendar`);
+        }
+      } else if (notification.pet_id) {
+        // Pet-related notifications
+        navigate(`/pets/${notification.pet_id}`);
+      } else if (notification.owner_id) {
+        // Owner-related notifications
+        navigate(`/owners/${notification.owner_id}`);
+      } else if (notification.record_id) {
+        // Medical record notifications
+        navigate(`/records/${notification.record_id}`);
+      }
+      
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error handling notification:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to process notification",
+      });
     }
   };
-  
+
+  const getNotificationIcon = (type: string, date?: string) => {
+    if (date && isPast(parseISO(date))) {
+      return '⏰';
+    }
+    
+    switch (type) {
+      case 'scheduled':
+        return '📅';
+      case 'reminder':
+        return '🔔';
+      case 'update':
+        return '📝';
+      default:
+        return '📌';
+    }
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {notifications.length > 0 && (
+          {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center"
-              variant="destructive"
+              variant="destructive" 
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
             >
-              {notifications.length > 9 ? '9+' : notifications.length}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
           )}
+          <span className="sr-only">Notifications</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <div className="flex items-center justify-between p-2">
-          <h3 className="font-medium">Notifications</h3>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 gap-1" 
-            onClick={() => navigate('/calendar')}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            Calendar
-          </Button>
-        </div>
-        
+      <DropdownMenuContent align="end" className="w-[320px]">
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
-        {isLoading ? (
-          <div className="p-4 text-center text-muted-foreground">
-            Loading notifications...
+        {notifications.length === 0 ? (
+          <div className="py-4 px-2 text-center text-muted-foreground">
+            No notifications
           </div>
-        ) : notifications.length > 0 ? (
-          <div className="max-h-[300px] overflow-y-auto">
-            {notifications.map(notification => (
+        ) : (
+          <DropdownMenuGroup className="max-h-[400px] overflow-y-auto">
+            {notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className="cursor-pointer p-3 focus:bg-accent"
-                onClick={() => navigateToAppointment(notification.appointmentId)}
+                className={`cursor-pointer p-3 ${!notification.read ? 'bg-secondary/50' : ''}`}
+                onClick={() => handleNotificationClick(notification)}
               >
-                <div className="w-full">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="font-medium">{notification.title}</span>
-                    <Badge 
-                      variant={notification.type === 'overdue' ? 'destructive' : 'outline'}
-                      className="text-xs"
-                    >
-                      {notification.type === 'overdue' ? 'Overdue' : 'Upcoming'}
-                    </Badge>
+                <div className="flex gap-2 w-full">
+                  <div className="flex-shrink-0 text-xl">
+                    {getNotificationIcon(notification.type, notification.appointment_date)}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">{notification.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(notification.date, 'PPP')}
-                  </p>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium leading-none">{notification.title}</p>
+                    <p className="text-xs text-muted-foreground">{notification.message}</p>
+                    {notification.created_at && (
+                      <p className="text-xs text-muted-foreground">
+                        {format(parseISO(notification.created_at), 'MMM d, yyyy · h:mm a')}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </DropdownMenuItem>
             ))}
-          </div>
-        ) : (
-          <div className="p-4 text-center text-muted-foreground">
-            No notifications
-          </div>
-        )}
-        
-        {notifications.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer text-center text-muted-foreground"
-              onClick={() => navigate('/calendar')}
-            >
-              View all in calendar
-            </DropdownMenuItem>
-          </>
+          </DropdownMenuGroup>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

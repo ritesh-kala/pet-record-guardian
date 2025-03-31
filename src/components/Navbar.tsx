@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, User, Menu, X, Home, Pets, Users, FileText, LogOut, Calendar } from 'lucide-react';
+import { Moon, Sun, User, Menu, X, Home, PawPrint, Users, FileText, LogOut, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { useMobileCheck } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import NotificationsMenu from './NotificationsMenu';
 
 interface NavItem {
@@ -31,7 +32,7 @@ const items: NavItem[] = [
   {
     title: "Pets",
     href: "/pets",
-    icon: Pets,
+    icon: PawPrint,
     section: "main",
   },
   {
@@ -59,8 +60,8 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { pathname } = location;
-  const { isLoggedIn, logout } = useAuth();
-  const isMobile = useMobileCheck();
+  const { currentUser, logout } = useAuth();
+  const isMobile = useIsMobile();
 
   const handleLogout = async () => {
     await logout();
@@ -104,7 +105,7 @@ const Navbar: React.FC = () => {
         </div>
         
         <div className="flex items-center justify-end space-x-2 md:flex-1">
-          {isLoggedIn && (
+          {currentUser && (
             <>
               <NotificationsMenu />
               <DropdownMenu>
