@@ -29,7 +29,16 @@ const NewAppointment: React.FC = () => {
       try {
         setIsLoading(true);
         const pet = await getPetById(petId);
-        setPetName(pet.name);
+        if (pet) {
+          setPetName(pet.name);
+        } else {
+          toast({
+            title: 'Error',
+            description: 'Pet not found',
+            variant: 'destructive'
+          });
+          navigate('/pets');
+        }
       } catch (error) {
         console.error('Error fetching pet details:', error);
         toast({
