@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-interface NotificationOptions {
+export interface NotificationOptions {
   recipient: string;
   subject?: string;
   message: string;
