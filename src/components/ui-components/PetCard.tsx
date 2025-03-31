@@ -90,7 +90,7 @@ const PetCard: React.FC<PetCardProps> = ({
           variant="outline" 
           size="sm" 
           className="flex-1 gap-1"
-          onClick={() => navigate(`/records/new?petId=${id}`)}
+          onClick={() => navigate(`/records?petId=${id}`)}
         >
           <Stethoscope className="h-4 w-4" /> Records
         </Button>

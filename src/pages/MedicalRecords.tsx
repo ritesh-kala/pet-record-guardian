@@ -297,7 +297,7 @@ const MedicalRecords: React.FC = () => {
           ) : (
             <div className="text-center py-8 border rounded-lg bg-muted/20">
               <p className="text-muted-foreground mb-4">No upcoming appointments scheduled</p>
-              <Button onClick={() => navigate('/pets')}>
+              <Button onClick={() => navigate('/appointments/new')}>
                 Schedule an Appointment
               </Button>
             </div>

@@ -1,212 +1,155 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Home, 
-  User, 
-  PawPrint, 
-  Stethoscope, 
-  Menu, 
-  X,
-  Plus,
-  LogOut,
-  Settings
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Moon, Sun, User, Menu, X, Home, Pets, Users, FileText, LogOut, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from '@/lib/utils';
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
+import { useMobileCheck } from '@/hooks/use-mobile';
+import NotificationsMenu from './NotificationsMenu';
 
-const Navbar = () => {
-  const location = useLocation();
+interface NavItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  section: string;
+}
+
+const items: NavItem[] = [
+  {
+    title: "Home",
+    href: "/",
+    icon: Home,
+    section: "main",
+  },
+  {
+    title: "Pets",
+    href: "/pets",
+    icon: Pets,
+    section: "main",
+  },
+  {
+    title: "Owners",
+    href: "/owners",
+    icon: Users,
+    section: "main",
+  },
+  {
+    title: "Records",
+    href: "/records",
+    icon: FileText,
+    section: "main",
+  },
+  {
+    title: "Calendar",
+    href: "/calendar",
+    icon: Calendar,
+    section: "main",
+  },
+];
+
+const Navbar: React.FC = () => {
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const navigate = useNavigate();
-  const [isOpen, setIsOpen] = useState(false);
-  const { currentUser, logout } = useAuth();
-
-  const navItems = [
-    { name: 'Home', path: '/', icon: <Home className="w-5 h-5" /> },
-    { name: 'Owners', path: '/owners', icon: <User className="w-5 h-5" /> },
-    { name: 'Pets', path: '/pets', icon: <PawPrint className="w-5 h-5" /> },
-    { name: 'Medical Records', path: '/records', icon: <Stethoscope className="w-5 h-5" /> },
-  ];
+  const location = useLocation();
+  const { pathname } = location;
+  const { isLoggedIn, logout } = useAuth();
+  const isMobile = useMobileCheck();
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
-  const getUserInitials = () => {
-    const fullName = currentUser?.user_metadata?.full_name;
-    if (fullName) {
-      return fullName
-        .split(' ')
-        .map(name => name[0])
-        .join('')
-        .toUpperCase()
-        .substring(0, 2);
-    }
-    return currentUser?.email?.substring(0, 2).toUpperCase() || 'U';
+    await logout();
+    navigate('/login');
   };
 
   return (
-    <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <PawPrint className="h-6 w-6 text-primary" />
-            <span className="font-serif text-xl font-medium">PetCare</span>
+    <header className={cn("sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60")}>
+      <div className="container flex h-16 items-center">
+        <div className="flex gap-2 md:gap-10 justify-between md:justify-start w-full">
+          <Link to="/" className="flex items-center space-x-2 shrink-0">
+            <img
+              src="/placeholder.svg"
+              alt="Pet Health Hub Logo"
+              className="h-8 w-8"
+            />
+            <span className="hidden md:inline-block font-semibold">Pet Health Hub</span>
           </Link>
-
-          <nav className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => (
+          
+          <nav className="hidden md:flex items-center gap-6 text-sm">
+            {items.filter(item => item.section !== "profile").map((item, index) => (
               <Link
-                key={item.path}
-                to={item.path}
+                key={index}
+                to={item.href}
                 className={cn(
-                  "px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  location.pathname === item.path
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground/80 hover:text-foreground hover:bg-accent"
+                  "transition-colors hover:text-foreground/80",
+                  pathname === item.href ? "text-foreground font-medium" : "text-foreground/60"
                 )}
               >
-                <span className="flex items-center gap-2">
-                  {item.icon}
-                  {item.name}
-                </span>
+                {item.title}
               </Link>
             ))}
           </nav>
-
-          <div className="hidden md:flex items-center gap-2">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              className="gap-1"
-              onClick={() => navigate('/records/new')}
-            >
-              <Plus className="h-4 w-4" />
-              New Record
+          
+          <div className="flex md:hidden">
+            <Button variant="ghost" size="icon" onClick={() => setShowMobileMenu(!showMobileMenu)}>
+              {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              <span className="sr-only">Toggle Menu</span>
             </Button>
-            
-            {currentUser && (
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-end space-x-2 md:flex-1">
+          {isLoggedIn && (
+            <>
+              <NotificationsMenu />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                        {getUserInitials()}
-                      </AvatarFallback>
-                    </Avatar>
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                    <span className="sr-only">Toggle user menu</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 mr-2">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{currentUser.user_metadata?.full_name || 'User'}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem onClick={() => navigate('/profile')}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Profile Settings</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign out</span>
+                    <span>Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          </div>
-
-          <button 
-            className="md:hidden p-2 rounded-md text-foreground/80 hover:text-foreground hover:bg-accent"
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+            </>
+          )}
         </div>
-      </header>
-
-      {isOpen && (
-        <div className="fixed inset-0 z-40 bg-background/95 backdrop-blur-sm md:hidden pt-16 animate-fadeIn">
-          <nav className="container mx-auto px-4 py-6 flex flex-col space-y-1">
-            {navItems.map((item) => (
+      </div>
+      
+      {/* Mobile menu */}
+      {showMobileMenu && (
+        <div className="md:hidden">
+          <div className="px-4 py-4 space-y-1 divide-y divide-border">
+            {items.map((item, index) => (
               <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "px-4 py-3 rounded-md text-base font-medium transition-colors flex items-center gap-3",
-                  location.pathname === item.path
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground/80 hover:text-foreground hover:bg-accent"
-                )}
-                onClick={() => setIsOpen(false)}
+                key={index}
+                to={item.href}
+                className="flex items-center gap-2 py-3"
+                onClick={() => setShowMobileMenu(false)}
               >
-                {item.icon}
-                {item.name}
+                <item.icon className="h-4 w-4" />
+                <span>{item.title}</span>
               </Link>
             ))}
-            
-            {currentUser && (
-              <>
-                <Link
-                  to="/profile"
-                  className="px-4 py-3 rounded-md text-base font-medium transition-colors flex items-center gap-3 text-foreground/80 hover:text-foreground hover:bg-accent"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <Settings className="h-5 w-5" />
-                  Profile Settings
-                </Link>
-                
-                <button
-                  className="px-4 py-3 rounded-md text-base font-medium transition-colors flex items-center gap-3 text-foreground/80 hover:text-foreground hover:bg-accent w-full text-left"
-                  onClick={() => {
-                    setIsOpen(false);
-                    handleLogout();
-                  }}
-                >
-                  <LogOut className="h-5 w-5" />
-                  Sign out
-                </button>
-              </>
-            )}
-            
-            <div className="pt-4 mt-4 border-t border-border">
-              <Button 
-                className="w-full justify-center gap-1"
-                onClick={() => {
-                  navigate('/records/new');
-                  setIsOpen(false);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                New Record
-              </Button>
-            </div>
-          </nav>
+          </div>
         </div>
       )}
-      
-      <div className="pt-16"></div>
-    </>
+    </header>
   );
 };
 

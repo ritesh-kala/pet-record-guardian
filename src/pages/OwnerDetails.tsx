@@ -1,14 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Mail, Phone, MapPin, Edit, PawPrint, Plus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Edit, PawPrint, Plus, Loader2, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getOwnerById, getPets, Owner, Pet } from '@/lib/supabaseService';
+import { getOwnerById, getPets, getAppointments, Owner, Pet, Appointment } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 const OwnerDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +19,7 @@ const OwnerDetails: React.FC = () => {
   
   const [owner, setOwner] = useState<Owner | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUserOwner, setIsUserOwner] = useState(false);
@@ -38,6 +40,27 @@ const OwnerDetails: React.FC = () => {
         // Fetch pets for this owner - passing just the owner ID
         const petsData = await getPets(id);
         setPets(petsData);
+        
+        // Fetch upcoming appointments for all pets belonging to this owner
+        if (petsData.length > 0) {
+          const petIds = petsData.map(pet => pet.id);
+          const now = new Date();
+          const allAppointments: Appointment[] = [];
+          
+          for (const petId of petIds) {
+            if (petId) {
+              const petAppointments = await getAppointments(petId);
+              const upcomingAppointments = petAppointments.filter(
+                app => app.status === 'scheduled' && new Date(app.date) >= now
+              );
+              allAppointments.push(...upcomingAppointments);
+            }
+          }
+          
+          // Sort appointments by date (newest first)
+          allAppointments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          setAppointments(allAppointments);
+        }
       } catch (error) {
         console.error('Error fetching owner details:', error);
         setError('Failed to load owner details');
@@ -58,6 +81,25 @@ const OwnerDetails: React.FC = () => {
     if (id) {
       navigate(`/owners/edit/${id}`);
     }
+  };
+
+  const getPetName = (petId: string) => {
+    const pet = pets.find(p => p.id === petId);
+    return pet ? pet.name : 'Unknown Pet';
+  };
+  
+  const getAppointmentBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'outline';
+      case 'completed': return 'secondary';
+      case 'canceled': return 'destructive';
+      case 'missed': return 'default';
+      default: return 'outline';
+    }
+  };
+  
+  const formatAppointmentDateTime = (date: string, time?: string | null) => {
+    return `${format(new Date(date), 'PPP')}${time ? ` at ${time}` : ''}`;
   };
 
   if (isLoading) {
@@ -224,6 +266,61 @@ const OwnerDetails: React.FC = () => {
             </Card>
           </div>
         </div>
+
+        {appointments.length > 0 && (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">Upcoming Appointments</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('/calendar')}
+                  className="gap-1"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Calendar
+                </Button>
+              </div>
+              
+              <div className="space-y-4">
+                {appointments.slice(0, 5).map(appointment => (
+                  <div 
+                    key={appointment.id}
+                    className="p-3 border rounded-md hover:bg-accent cursor-pointer transition-colors"
+                    onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                  >
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium">{appointment.reason || 'Appointment'}</span>
+                      <Badge variant={getAppointmentBadgeVariant(appointment.status || 'scheduled')}>
+                        {appointment.status || 'scheduled'}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Pet: {getPetName(appointment.pet_id)}
+                      </span>
+                      <span className="flex items-center">
+                        <Calendar className="h-3 w-3 mr-1 inline" />
+                        {formatAppointmentDateTime(appointment.date, appointment.time)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                
+                {appointments.length > 5 && (
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-muted-foreground"
+                    onClick={() => navigate('/calendar')}
+                  >
+                    View {appointments.length - 5} more
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );
