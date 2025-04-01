@@ -11,16 +11,36 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { format, isAfter, isBefore, isToday, parseISO } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
-import { getMedicationsByPetId, getActiveMedicationsByPetId } from '@/lib/supabaseService';
+import { getMedicationsByPetId, getActiveMedicationsByPetId, getPets } from '@/lib/supabaseService';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const Medications = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const petId = searchParams.get('petId');
   const navigate = useNavigate();
   const { toast } = useToast();
   
   const [medications, setMedications] = useState<any[]>([]);
+  const [pets, setPets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPets = async () => {
+      try {
+        const petsData = await getPets();
+        setPets(petsData);
+      } catch (error) {
+        console.error('Error fetching pets:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load pets",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchPets();
+  }, [toast]);
 
   useEffect(() => {
     const fetchMedications = async () => {
@@ -33,12 +53,6 @@ const Medications = () => {
         } else {
           // Show all active medications if no pet is selected
           medicationsData = [];
-          // In a real app, this might fetch medications for all pets
-          toast({
-            title: "No pet selected",
-            description: "Please select a pet to view their medications",
-            variant: "default"
-          });
         }
         
         setMedications(medicationsData);
@@ -56,6 +70,14 @@ const Medications = () => {
     
     fetchMedications();
   }, [petId, toast]);
+
+  const handlePetChange = (value: string) => {
+    if (value) {
+      setSearchParams({ petId: value });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   const activeMedications = medications.filter(med => med.active);
   const inactiveMedications = medications.filter(med => !med.active);
@@ -80,13 +102,15 @@ const Medications = () => {
     return { label: "Active", variant: "success" as const };
   };
 
+  const selectedPet = pets.find(pet => pet.id === petId);
+
   return (
     <Layout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <SectionHeader
             title="Medications"
-            description={petId ? "Manage pet medications and schedule" : "View and manage all pet medications"}
+            description={petId && selectedPet ? `Manage medications for ${selectedPet.name}` : "View and manage all pet medications"}
           />
           
           <Button 
@@ -96,6 +120,26 @@ const Medications = () => {
             <Plus className="mr-2 h-4 w-4" />
             Add Medication
           </Button>
+        </div>
+
+        <div className="mb-6">
+          <Select value={petId || ""} onValueChange={handlePetChange}>
+            <SelectTrigger className="w-full md:w-[260px]">
+              <SelectValue placeholder="Select a pet" />
+            </SelectTrigger>
+            <SelectContent>
+              {pets.map((pet) => (
+                <SelectItem key={pet.id} value={pet.id}>
+                  {pet.name} - {pet.species}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!petId && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Please select a pet to view their medications
+            </p>
+          )}
         </div>
 
         {isLoading ? (
