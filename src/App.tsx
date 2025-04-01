@@ -1,7 +1,6 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Pages
@@ -30,50 +29,48 @@ import '@/App.css';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+    <Router>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        
+        {/* Protected routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/profile" element={<Profile />} />
           
-          {/* Protected routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/profile" element={<Profile />} />
-            
-            {/* Pets */}
-            <Route path="/pets" element={<Pets />} />
-            <Route path="/pets/new" element={<NewPet />} />
-            <Route path="/pets/:id" element={<PetDetails />} />
-            <Route path="/pets/:id/edit" element={<EditPet />} />
-            
-            {/* Owners */}
-            <Route path="/owners" element={<Owners />} />
-            <Route path="/owners/new" element={<NewOwner />} />
-            <Route path="/owners/:id" element={<OwnerDetails />} />
-            <Route path="/owners/:id/edit" element={<EditOwner />} />
-            
-            {/* Medical Records */}
-            <Route path="/records" element={<MedicalRecords />} />
-            <Route path="/records/new" element={<NewMedicalRecord />} />
-            <Route path="/records/:id" element={<MedicalRecordDetails />} />
-            <Route path="/records/:id/edit" element={<EditMedicalRecord />} />
-            
-            {/* Appointments */}
-            <Route path="/appointments/new" element={<NewAppointment />} />
-            <Route path="/appointments/:id/edit" element={<EditAppointment />} />
-            
-            {/* Calendar */}
-            <Route path="/calendar" element={<CalendarView />} />
-          </Route>
+          {/* Pets */}
+          <Route path="/pets" element={<Pets />} />
+          <Route path="/pets/new" element={<NewPet />} />
+          <Route path="/pets/:id" element={<PetDetails />} />
+          <Route path="/pets/:id/edit" element={<EditPet />} />
           
-          {/* Catch-all route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster />
-      </Router>
-    </AuthProvider>
+          {/* Owners */}
+          <Route path="/owners" element={<Owners />} />
+          <Route path="/owners/new" element={<NewOwner />} />
+          <Route path="/owners/:id" element={<OwnerDetails />} />
+          <Route path="/owners/:id/edit" element={<EditOwner />} />
+          
+          {/* Medical Records */}
+          <Route path="/records" element={<MedicalRecords />} />
+          <Route path="/records/new" element={<NewMedicalRecord />} />
+          <Route path="/records/:id" element={<MedicalRecordDetails />} />
+          <Route path="/records/:id/edit" element={<EditMedicalRecord />} />
+          
+          {/* Appointments */}
+          <Route path="/appointments/new" element={<NewAppointment />} />
+          <Route path="/appointments/:id/edit" element={<EditAppointment />} />
+          
+          {/* Calendar */}
+          <Route path="/calendar" element={<CalendarView />} />
+        </Route>
+        
+        {/* Catch-all route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
+    </Router>
   );
 }
 
