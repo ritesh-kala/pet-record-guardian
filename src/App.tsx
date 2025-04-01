@@ -26,6 +26,7 @@ import EditAppointment from '@/pages/EditAppointment';
 import CalendarView from '@/pages/CalendarView';
 import Medications from '@/pages/Medications';
 import NewMedication from '@/pages/NewMedication';
+import MedicationLog from '@/pages/MedicationLog';
 
 import '@/App.css';
 
@@ -70,6 +71,8 @@ function App() {
           {/* Medications */}
           <Route path="/medications" element={<Medications />} />
           <Route path="/medications/new" element={<NewMedication />} />
+          <Route path="/medications/:id" element={<MedicationLog />} />
+          <Route path="/medications/:id/log" element={<MedicationLog />} />
         </Route>
         
         {/* Catch-all route */}
