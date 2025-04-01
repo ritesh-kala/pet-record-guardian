@@ -32,7 +32,8 @@ import {
   Trash2,
   Info,
   Heart,
-  Calendar 
+  Calendar,
+  Pill
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -235,7 +236,7 @@ const PetDetails: React.FC = () => {
         </div>
         
         <Tabs defaultValue="info" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
+          <TabsList className="grid grid-cols-4 w-full md:w-[400px]">
             <TabsTrigger value="info" className="flex items-center gap-1">
               <Info className="h-4 w-4" />
               <span className="hidden sm:inline">Info</span>
@@ -243,6 +244,10 @@ const PetDetails: React.FC = () => {
             <TabsTrigger value="health" className="flex items-center gap-1">
               <Heart className="h-4 w-4" />
               <span className="hidden sm:inline">Health Records</span>
+            </TabsTrigger>
+            <TabsTrigger value="medications" className="flex items-center gap-1">
+              <Pill className="h-4 w-4" />
+              <span className="hidden sm:inline">Medications</span>
             </TabsTrigger>
             <TabsTrigger value="appointments" className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
@@ -463,6 +468,23 @@ const PetDetails: React.FC = () => {
                 </Button>
               </div>
             )}
+          </TabsContent>
+          
+          {/* Medications Tab */}
+          <TabsContent value="medications" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Medications</h2>
+              <Button onClick={() => navigate(`/medications/new?petId=${id}`)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Medication
+              </Button>
+            </div>
+            
+            <iframe 
+              src={`/medications?petId=${id}&embedded=true`} 
+              className="w-full min-h-[500px] border-none"
+              title="Pet Medications"
+            />
           </TabsContent>
           
           {/* Appointments Tab */}
