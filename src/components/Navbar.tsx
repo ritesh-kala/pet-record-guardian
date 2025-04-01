@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Moon, Sun, User, Menu, X, Home, PawPrint, Users, FileText, LogOut, Calendar } from 'lucide-react';
+import { Moon, Sun, User, Menu, X, Home, PawPrint, Users, FileText, LogOut, Calendar, Pill } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -45,6 +45,12 @@ const items: NavItem[] = [
     title: "Records",
     href: "/records",
     icon: FileText,
+    section: "main",
+  },
+  {
+    title: "Medications",
+    href: "/medications",
+    icon: Pill,
     section: "main",
   },
   {

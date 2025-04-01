@@ -122,7 +122,6 @@ export interface MedicationImage {
   created_at?: string;
 }
 
-// Timestamp helper class to mimic Firebase's Timestamp
 export class Timestamp {
   seconds: number;
   nanoseconds: number;
@@ -146,7 +145,6 @@ export class Timestamp {
   }
 }
 
-// Convert functions
 function timestampToISOString(timestamp: Timestamp | string): string {
   if (typeof timestamp === 'string') {
     return timestamp;
@@ -159,7 +157,6 @@ function isoStringToTimestamp(isoString: string): Timestamp {
   return Timestamp.fromDate(date);
 }
 
-// Owners
 export async function getOwners(): Promise<Owner[]> {
   const { data, error } = await supabase
     .from('owners')
@@ -263,7 +260,6 @@ export async function updateOwner(id: string, owner: Partial<Owner>): Promise<vo
   }
 }
 
-// Pets
 export async function getPets(ownerId?: string): Promise<Pet[]> {
   let query = supabase
     .from('pets')
@@ -360,7 +356,6 @@ export async function updatePet(id: string, pet: Partial<Pet>): Promise<void> {
   }
 }
 
-// Medical Records
 export async function getMedicalRecords(petId?: string): Promise<MedicalRecord[]> {
   let query = supabase
     .from('medical_records')
@@ -454,7 +449,6 @@ export async function updateMedicalRecord(id: string, record: Partial<MedicalRec
   }
 }
 
-// Appointments
 export async function getAppointments(petId?: string, startDate?: string, endDate?: string): Promise<Appointment[]> {
   let query = supabase
     .from('appointments')
@@ -577,7 +571,6 @@ export async function deleteAppointment(id: string): Promise<void> {
   }
 }
 
-// Attachments
 export async function getAttachmentsByRecordId(recordId: string): Promise<Attachment[]> {
   const { data, error } = await supabase
     .from('attachments')
@@ -650,7 +643,6 @@ export async function uploadAttachmentFile(file: File, recordId: string): Promis
   return publicUrlData.publicUrl;
 }
 
-// Medications
 export async function getMedicationsByPetId(petId: string): Promise<Medication[]> {
   const { data, error } = await supabase
     .from('medications')
@@ -758,7 +750,6 @@ export async function deleteMedication(id: string): Promise<void> {
   }
 }
 
-// Medication Logs
 export async function getMedicationLogsByMedicationId(medicationId: string): Promise<MedicationLog[]> {
   const { data, error } = await supabase
     .from('medication_logs')
@@ -822,7 +813,6 @@ export async function deleteMedicationLog(id: string): Promise<void> {
   }
 }
 
-// Medication Images
 export async function getMedicationImagesByMedicationId(medicationId: string): Promise<MedicationImage[]> {
   const { data, error } = await supabase
     .from('medication_images')
@@ -892,7 +882,6 @@ export async function uploadMedicationImage(file: File, medicationId: string): P
   return publicUrlData.publicUrl;
 }
 
-// Recent Logs - for dashboard
 export async function getRecentMedicationLogsByPetId(petId: string, limit: number = 5): Promise<any[]> {
   const { data, error } = await supabase
     .from('medication_logs')
@@ -922,7 +911,6 @@ export async function getRecentMedicationLogsByPetId(petId: string, limit: numbe
   return data || [];
 }
 
-// Due medications - for today's schedule
 export async function getDueMedicationsByPetId(petId: string): Promise<Medication[]> {
   const today = new Date().toISOString().split('T')[0];
   
@@ -942,7 +930,6 @@ export async function getDueMedicationsByPetId(petId: string): Promise<Medicatio
   return data || [];
 }
 
-// Medications needing refill
 export async function getMedicationsNeedingRefill(petId: string, daysThreshold: number = 7): Promise<Medication[]> {
   const today = new Date();
   const thresholdDate = new Date();

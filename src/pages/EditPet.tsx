@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import SectionHeader from '@/components/ui-components/SectionHeader';
+import PetDetailTabs from '@/components/ui-components/PetDetailTabs';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,6 +197,8 @@ const EditPet: React.FC = () => {
             description="Update pet information" 
           />
         </div>
+
+        {id && <PetDetailTabs petId={id} activeTab="overview" />}
 
         <Card>
           <CardContent className="pt-6">
