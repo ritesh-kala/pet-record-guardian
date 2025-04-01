@@ -153,6 +153,141 @@ export type Database = {
           },
         ]
       }
+      medication_images: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string
+          medication_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url: string
+          medication_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string
+          medication_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_images_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_logs: {
+        Row: {
+          created_at: string
+          given_at: string
+          given_by: string | null
+          id: string
+          medication_id: string
+          notes: string | null
+          skip_reason: string | null
+          skipped: boolean
+        }
+        Insert: {
+          created_at?: string
+          given_at?: string
+          given_by?: string | null
+          id?: string
+          medication_id: string
+          notes?: string | null
+          skip_reason?: string | null
+          skipped?: boolean
+        }
+        Update: {
+          created_at?: string
+          given_at?: string
+          given_by?: string | null
+          id?: string
+          medication_id?: string
+          notes?: string | null
+          skip_reason?: string | null
+          skipped?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_logs_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medications: {
+        Row: {
+          active: boolean
+          created_at: string
+          dosage: string
+          end_date: string | null
+          frequency: string
+          id: string
+          instructions: string | null
+          name: string
+          notes: string | null
+          pet_id: string
+          prescribing_vet: string | null
+          refill_date: string | null
+          refill_reminder: boolean | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          dosage: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          instructions?: string | null
+          name: string
+          notes?: string | null
+          pet_id: string
+          prescribing_vet?: string | null
+          refill_date?: string | null
+          refill_reminder?: boolean | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          dosage?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          instructions?: string | null
+          name?: string
+          notes?: string | null
+          pet_id?: string
+          prescribing_vet?: string | null
+          refill_date?: string | null
+          refill_reminder?: boolean | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medications_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       owners: {
         Row: {
           address: string | null
