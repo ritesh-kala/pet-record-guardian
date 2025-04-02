@@ -1,36 +1,11 @@
 
 import React from 'react';
-import { Plus, Calendar } from 'lucide-react';
-import { TabsContent } from '@/components/ui/tabs';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Pet } from '@/lib/types';
 import { useExpenseManager } from '@/hooks/useExpenseManager';
-import ExpenseEntryForm from './ExpenseEntryForm';
-import ExpensesTable from './ExpensesTable';
-import ExpenseCharts from './ExpenseCharts';
-import ExpenseSummary from './ExpenseSummary';
+import FilterSection from './FilterSection';
+import ExpenseDialogs from './ExpenseDialogs';
+import TabsManager from './TabsManager';
 
 interface ExpenseManagerProps {
   petId?: string;
@@ -68,58 +43,51 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
     name: pet.name
   }));
 
+  // Handle CSV export
+  const handleExport = () => {
+    const headers = ['Date', 'Amount (₹)', 'Category', 'Description', 'Pet'];
+    
+    const csvRows = [
+      headers.join(','),
+      ...expenses.map(expense => {
+        const petName = petList.find(p => p.id === expense.pet_id)?.name || 'Unknown Pet';
+        return [
+          expense.expense_date,
+          expense.amount.toFixed(2),
+          expense.category,
+          `"${expense.description?.replace(/"/g, '""') || ''}"`,
+          petName
+        ].join(',');
+      })
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `pet-expenses-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          {!petId && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-4">
-              <Select
-                value={selectedPetFilter || 'all'}
-                onValueChange={(value) => setSelectedPetFilter(value === 'all' ? undefined : value)}
-              >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Select pet" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Pets</SelectItem>
-                  {petList.map((pet) => (
-                    <SelectItem key={pet.id} value={pet.id}>
-                      {pet.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {formatDateRange()}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="range"
-                    selected={{
-                      from: dateRange.from,
-                      to: dateRange.to,
-                    }}
-                    onSelect={(range) => {
-                      if (range?.from && range?.to) {
-                        setDateRange({
-                          from: range.from,
-                          to: range.to,
-                        });
-                      }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-        </div>
+        <FilterSection
+          selectedPetFilter={selectedPetFilter}
+          onPetFilterChange={(value) => setSelectedPetFilter(value === 'all' ? undefined : value)}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          formatDateRange={formatDateRange}
+          onExport={handleExport}
+          petList={petList}
+          petId={petId}
+        />
         
         <Button onClick={() => setIsAddExpenseOpen(true)} className="gap-1">
           <Plus className="h-4 w-4" />
@@ -127,97 +95,25 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
         </Button>
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="list">List View</TabsTrigger>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="list" className="space-y-4">
-          {isExpensesLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, index) => (
-                <Skeleton key={index} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <ExpensesTable
-              expenses={expenses}
-              onEdit={handleEditExpense}
-              onDeleted={handleExpenseDeleted}
-              pets={petList}
-            />
-          )}
-        </TabsContent>
-        
-        <TabsContent value="dashboard" className="space-y-6">
-          {isExpensesLoading ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, index) => (
-                  <Skeleton key={index} className="h-32 w-full" />
-                ))}
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {[...Array(2)].map((_, index) => (
-                  <Skeleton key={index} className="h-72 w-full" />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              <ExpenseSummary expenses={expenses} />
-              <ExpenseCharts expenses={expenses} />
-              
-              <div className="bg-accent/20 p-4 rounded-lg">
-                <h3 className="text-lg font-medium mb-2">Recent Expenses</h3>
-                <ExpensesTable
-                  expenses={expenses.slice(0, 5)}
-                  onEdit={handleEditExpense}
-                  onDeleted={handleExpenseDeleted}
-                  pets={petList}
-                />
-                {expenses.length > 5 && (
-                  <div className="mt-4 text-center">
-                    <Button variant="outline" onClick={() => setActiveTab('list')}>
-                      View All Expenses
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+      <TabsManager
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        expenses={expenses}
+        isExpensesLoading={isExpensesLoading}
+        handleEditExpense={handleEditExpense}
+        handleExpenseDeleted={handleExpenseDeleted}
+        petList={petList}
+      />
       
-      {/* Add/Edit Expense Dialog */}
-      <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingExpense ? 'Edit Expense' : 'Add Expense'}</DialogTitle>
-            <DialogDescription>
-              {editingExpense
-                ? 'Update expense details below.'
-                : 'Enter the details for the new expense.'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {isPetsLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, index) => (
-                <Skeleton key={index} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : (
-            <ExpenseEntryForm
-              pets={pets as Pet[]}
-              expense={editingExpense}
-              onSuccess={handleExpenseSubmitSuccess}
-              defaultPetId={petId}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <ExpenseDialogs
+        isAddExpenseOpen={isAddExpenseOpen}
+        setIsAddExpenseOpen={setIsAddExpenseOpen}
+        editingExpense={editingExpense}
+        pets={pets}
+        isPetsLoading={isPetsLoading}
+        handleExpenseSubmitSuccess={handleExpenseSubmitSuccess}
+        defaultPetId={petId}
+      />
     </div>
   );
 };
