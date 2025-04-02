@@ -3,9 +3,9 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, DollarSign } from 'lucide-react';
-import { Layout } from '@/components/Layout';
+import Layout from '@/components/Layout'; // Fixed import
 import { Button } from '@/components/ui/button';
-import { getPet } from '@/lib/services/petService';
+import { getPetById } from '@/lib/services/petService'; // Fixed function name
 import PetDetailTabs from '@/components/ui-components/PetDetailTabs';
 import ExpenseManager from '@/components/expenses/ExpenseManager';
 import SectionHeader from '@/components/ui-components/SectionHeader';
@@ -21,7 +21,7 @@ const PetExpenses = () => {
     error,
   } = useQuery({
     queryKey: ['pet', id],
-    queryFn: () => getPet(id as string),
+    queryFn: () => getPetById(id as string),
     enabled: !!id,
   });
 
@@ -71,7 +71,7 @@ const PetExpenses = () => {
           <SectionHeader
             title={`${pet.name}'s Expenses`}
             description="Track and manage expenses for your pet"
-            icon={<DollarSign />}
+            buttonIcon={<DollarSign className="h-4 w-4" />}
           />
         </div>
 

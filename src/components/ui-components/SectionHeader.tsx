@@ -9,6 +9,7 @@ interface SectionHeaderProps {
   description?: string;
   buttonText?: string;
   buttonIcon?: React.ReactNode;
+  icon?: React.ReactNode; // Added icon prop
   buttonLink?: string;
   onButtonClick?: () => void;
 }
@@ -18,6 +19,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   description,
   buttonText,
   buttonIcon = <Plus className="h-4 w-4" />,
+  icon, // Added icon prop
   buttonLink,
   onButtonClick,
 }) => {
@@ -33,11 +35,14 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 animate-slideIn">
-      <div className="mb-4 md:mb-0">
-        <h2 className="text-2xl font-medium tracking-tight">{title}</h2>
-        {description && (
-          <p className="text-muted-foreground mt-1">{description}</p>
-        )}
+      <div className="mb-4 md:mb-0 flex items-center">
+        {icon && <span className="mr-2 text-primary">{icon}</span>}
+        <div>
+          <h2 className="text-2xl font-medium tracking-tight">{title}</h2>
+          {description && (
+            <p className="text-muted-foreground mt-1">{description}</p>
+          )}
+        </div>
       </div>
       
       {buttonText && (

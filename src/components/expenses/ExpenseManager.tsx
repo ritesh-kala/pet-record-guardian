@@ -29,7 +29,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PetExpense, Pet } from '@/lib/types';
 import { getPetExpenses, getAllExpenses, getExpensesByDateRange } from '@/lib/services/expenseService';
-import { getAllPets } from '@/lib/services/petService';
+import { getPets } from '@/lib/services/petService'; // Fix: use getPets instead of getAllPets
 import ExpenseEntryForm from './ExpenseEntryForm';
 import ExpensesTable from './ExpensesTable';
 import ExpenseCharts from './ExpenseCharts';
@@ -63,7 +63,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
     isLoading: isPetsLoading,
   } = useQuery({
     queryKey: ['pets'],
-    queryFn: getAllPets,
+    queryFn: getPets, // Fix: use getPets
   });
 
   // Fetch expenses data
@@ -138,7 +138,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Pets</SelectItem>
-                  {pets.map((pet) => (
+                  {(pets as Pet[]).map((pet) => (
                     <SelectItem key={pet.id} value={pet.id || ''}>
                       {pet.name}
                     </SelectItem>
@@ -200,7 +200,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
               expenses={expenses}
               onEdit={handleEditExpense}
               onDeleted={handleExpenseDeleted}
-              pets={pets}
+              pets={pets as Pet[]}
             />
           )}
         </TabsContent>
@@ -230,7 +230,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
                   expenses={expenses.slice(0, 5)}
                   onEdit={handleEditExpense}
                   onDeleted={handleExpenseDeleted}
-                  pets={pets}
+                  pets={pets as Pet[]}
                 />
                 {expenses.length > 5 && (
                   <div className="mt-4 text-center">
@@ -265,7 +265,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
             </div>
           ) : (
             <ExpenseEntryForm
-              pets={pets}
+              pets={pets as Pet[]}
               expense={editingExpense}
               onSuccess={handleExpenseSubmitSuccess}
               defaultPetId={petId}

@@ -5,3 +5,4 @@ export * from './petService';
 export * from './medicalRecordService';
 export * from './appointmentService';
 export * from './medicationService';
+export * from './expenseService';

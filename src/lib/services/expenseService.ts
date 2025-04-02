@@ -15,7 +15,7 @@ export const getPetExpenses = async (petId: string): Promise<PetExpense[]> => {
     throw error;
   }
 
-  return data || [];
+  return data as PetExpense[] || [];
 };
 
 // Get all expenses across all pets
@@ -30,14 +30,21 @@ export const getAllExpenses = async (): Promise<PetExpense[]> => {
     throw error;
   }
 
-  return data || [];
+  return data as PetExpense[] || [];
 };
 
 // Add a new expense
 export const addExpense = async (expense: PetExpense): Promise<PetExpense> => {
   const { data, error } = await supabase
     .from('pet_expenses')
-    .insert(expense)
+    .insert({
+      pet_id: expense.pet_id,
+      expense_date: expense.expense_date,
+      amount: expense.amount,
+      category: expense.category,
+      description: expense.description,
+      receipt_url: expense.receipt_url,
+    })
     .select()
     .single();
 
@@ -46,14 +53,21 @@ export const addExpense = async (expense: PetExpense): Promise<PetExpense> => {
     throw error;
   }
 
-  return data;
+  return data as PetExpense;
 };
 
 // Update an existing expense
 export const updateExpense = async (expense: PetExpense): Promise<PetExpense> => {
   const { data, error } = await supabase
     .from('pet_expenses')
-    .update(expense)
+    .update({
+      pet_id: expense.pet_id,
+      expense_date: expense.expense_date,
+      amount: expense.amount,
+      category: expense.category,
+      description: expense.description,
+      receipt_url: expense.receipt_url,
+    })
     .eq('id', expense.id)
     .select()
     .single();
@@ -63,7 +77,7 @@ export const updateExpense = async (expense: PetExpense): Promise<PetExpense> =>
     throw error;
   }
 
-  return data;
+  return data as PetExpense;
 };
 
 // Delete an expense
@@ -127,7 +141,7 @@ export const getExpensesByDateRange = async (
     throw error;
   }
 
-  return data || [];
+  return data as PetExpense[] || [];
 };
 
 // Get expenses by category
@@ -151,19 +165,7 @@ export const getExpensesByCategory = async (
     throw error;
   }
 
-  return data || [];
-};
-
-// Get total expenses by pet
-export const getTotalExpensesByPet = async (): Promise<{ pet_id: string; total: number }[]> => {
-  const { data, error } = await supabase.rpc('get_total_expenses_by_pet');
-
-  if (error) {
-    console.error('Error fetching total expenses by pet:', error);
-    throw error;
-  }
-
-  return data || [];
+  return data as PetExpense[] || [];
 };
 
 // Export expenses to CSV
