@@ -28,7 +28,7 @@ const TabsManager: React.FC<TabsManagerProps> = ({
   petList,
 }) => {
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+    <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList>
         <TabsTrigger value="list">List View</TabsTrigger>
         <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
