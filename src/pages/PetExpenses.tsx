@@ -3,9 +3,9 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, DollarSign } from 'lucide-react';
-import Layout from '@/components/Layout'; // Using default import
+import Layout from '@/components/Layout'; 
 import { Button } from '@/components/ui/button';
-import { getPetById } from '@/lib/services/petService'; // Fixed function name
+import { getPetById } from '@/lib/services/petService';
 import PetDetailTabs from '@/components/ui-components/PetDetailTabs';
 import ExpenseManager from '@/components/expenses/ExpenseManager';
 import SectionHeader from '@/components/ui-components/SectionHeader';

@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { PetExpense } from '@/lib/types';
+import { PetExpense, Pet } from '@/lib/types';
 import { getExpensesByDateRange } from '@/lib/services/expenseService';
+import { getPets } from '@/lib/services/petService';
 
 interface UseExpenseManagerProps {
   petId?: string;
@@ -22,6 +23,15 @@ export function useExpenseManager({ petId, initialActiveTab = 'list' }: UseExpen
   }>({
     from: startOfMonth(subMonths(new Date(), 5)),
     to: endOfMonth(new Date()),
+  });
+
+  // Fetch pets data
+  const {
+    data: pets = [],
+    isLoading: isPetsLoading,
+  } = useQuery({
+    queryKey: ['pets'],
+    queryFn: () => getPets(),
   });
 
   // Fetch expenses data
@@ -94,6 +104,8 @@ export function useExpenseManager({ petId, initialActiveTab = 'list' }: UseExpen
     setDateRange,
     expenses,
     isExpensesLoading,
+    pets,
+    isPetsLoading,
     refetchExpenses,
     handleExpenseSubmitSuccess,
     handleEditExpense,

@@ -1,8 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { Plus, FileDown, Calendar } from 'lucide-react';
+import React from 'react';
+import { Plus, Calendar } from 'lucide-react';
 import { TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,9 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PetExpense, Pet } from '@/lib/types';
-import { getPetExpenses, getAllExpenses, getExpensesByDateRange } from '@/lib/services/expenseService';
-import { getPets } from '@/lib/services/petService'; 
+import { Pet } from '@/lib/types';
+import { useExpenseManager } from '@/hooks/useExpenseManager';
 import ExpenseEntryForm from './ExpenseEntryForm';
 import ExpensesTable from './ExpensesTable';
 import ExpenseCharts from './ExpenseCharts';
@@ -44,84 +41,26 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
   petId,
   initialActiveTab = 'list',
 }) => {
-  // State
-  const [activeTab, setActiveTab] = useState(initialActiveTab);
-  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<PetExpense | undefined>(undefined);
-  const [selectedPetFilter, setSelectedPetFilter] = useState<string | undefined>(petId);
-  const [dateRange, setDateRange] = useState<{
-    from: Date;
-    to: Date;
-  }>({
-    from: startOfMonth(subMonths(new Date(), 5)),
-    to: endOfMonth(new Date()),
-  });
-
-  // Fetch pets data
   const {
-    data: pets = [],
-    isLoading: isPetsLoading,
-  } = useQuery({
-    queryKey: ['pets'],
-    queryFn: () => getPets(), // Fixed: Use getPets with no arguments to fetch all pets
-  });
-
-  // Fetch expenses data
-  const {
-    data: expenses = [],
-    isLoading: isExpensesLoading,
-    refetch: refetchExpenses,
-  } = useQuery({
-    queryKey: ['expenses', selectedPetFilter, dateRange],
-    queryFn: async () => {
-      if (selectedPetFilter) {
-        return getExpensesByDateRange(
-          selectedPetFilter,
-          format(dateRange.from, 'yyyy-MM-dd'),
-          format(dateRange.to, 'yyyy-MM-dd')
-        );
-      } else {
-        return getExpensesByDateRange(
-          null,
-          format(dateRange.from, 'yyyy-MM-dd'),
-          format(dateRange.to, 'yyyy-MM-dd')
-        );
-      }
-    },
-  });
-
-  // Reset selected pet filter when petId prop changes
-  useEffect(() => {
-    setSelectedPetFilter(petId);
-  }, [petId]);
-
-  // Handle expense form submission success
-  const handleExpenseSubmitSuccess = () => {
-    setIsAddExpenseOpen(false);
-    setEditingExpense(undefined);
-    refetchExpenses();
-  };
-
-  // Handle expense edit
-  const handleEditExpense = (expense: PetExpense) => {
-    setEditingExpense(expense);
-    setIsAddExpenseOpen(true);
-  };
-
-  // Handle expense delete
-  const handleExpenseDeleted = () => {
-    refetchExpenses();
-  };
-
-  // Format date range for display
-  const formatDateRange = () => {
-    return `${format(dateRange.from, 'MMM d, yyyy')} - ${format(dateRange.to, 'MMM d, yyyy')}`;
-  };
-
-  // Handle all pets selection
-  const handleSelectAllPets = () => {
-    setSelectedPetFilter(undefined);
-  };
+    activeTab,
+    setActiveTab,
+    isAddExpenseOpen,
+    setIsAddExpenseOpen,
+    editingExpense,
+    setEditingExpense,
+    selectedPetFilter,
+    setSelectedPetFilter,
+    dateRange,
+    setDateRange,
+    expenses,
+    isExpensesLoading,
+    pets,
+    isPetsLoading,
+    handleExpenseSubmitSuccess,
+    handleEditExpense,
+    handleExpenseDeleted,
+    formatDateRange
+  } = useExpenseManager({ petId, initialActiveTab });
 
   // Create pet list for rendering
   const petList = pets.map(pet => ({
