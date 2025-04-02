@@ -3,7 +3,7 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, DollarSign } from 'lucide-react';
-import Layout from '@/components/Layout'; // Fixed import
+import Layout from '@/components/Layout'; // Using default import
 import { Button } from '@/components/ui/button';
 import { getPetById } from '@/lib/services/petService'; // Fixed function name
 import PetDetailTabs from '@/components/ui-components/PetDetailTabs';

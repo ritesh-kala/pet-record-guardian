@@ -29,7 +29,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PetExpense, Pet } from '@/lib/types';
 import { getPetExpenses, getAllExpenses, getExpensesByDateRange } from '@/lib/services/expenseService';
-import { getPets } from '@/lib/services/petService'; // Fix: use getPets instead of getAllPets
+import { getPets } from '@/lib/services/petService'; 
 import ExpenseEntryForm from './ExpenseEntryForm';
 import ExpensesTable from './ExpensesTable';
 import ExpenseCharts from './ExpenseCharts';
@@ -63,7 +63,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
     isLoading: isPetsLoading,
   } = useQuery({
     queryKey: ['pets'],
-    queryFn: getPets, // Fix: use getPets
+    queryFn: () => getPets(), // Fixed: Use getPets with no arguments to fetch all pets
   });
 
   // Fetch expenses data
@@ -123,6 +123,12 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
     setSelectedPetFilter(undefined);
   };
 
+  // Create pet list for rendering
+  const petList = pets.map(pet => ({
+    id: pet.id || '',  // Ensure id is always a string
+    name: pet.name
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -138,8 +144,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Pets</SelectItem>
-                  {(pets as Pet[]).map((pet) => (
-                    <SelectItem key={pet.id} value={pet.id || ''}>
+                  {petList.map((pet) => (
+                    <SelectItem key={pet.id} value={pet.id}>
                       {pet.name}
                     </SelectItem>
                   ))}
@@ -200,7 +206,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
               expenses={expenses}
               onEdit={handleEditExpense}
               onDeleted={handleExpenseDeleted}
-              pets={pets as Pet[]}
+              pets={petList}
             />
           )}
         </TabsContent>
@@ -230,7 +236,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
                   expenses={expenses.slice(0, 5)}
                   onEdit={handleEditExpense}
                   onDeleted={handleExpenseDeleted}
-                  pets={pets as Pet[]}
+                  pets={petList}
                 />
                 {expenses.length > 5 && (
                   <div className="mt-4 text-center">
