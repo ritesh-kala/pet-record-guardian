@@ -246,7 +246,7 @@ const ExpenseEntryForm: React.FC<ExpenseEntryFormProps> = ({
               <FormControl>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                    $
+                    ₹
                   </span>
                   <Input
                     type="number"

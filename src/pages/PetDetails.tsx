@@ -33,13 +33,15 @@ import {
   Info,
   Heart,
   Calendar,
-  Pill
+  Pill,
+  IndianRupee
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getPetById, getMedicalRecords, getAppointments, deleteAppointment, Appointment, getOwnerById } from '@/lib/supabaseService';
 import { useToast } from '@/components/ui/use-toast';
+import PetDetailTabs from '@/components/ui-components/PetDetailTabs';
 
 const PawPrint = ({ className }: { className?: string }) => (
   <svg 
@@ -235,397 +237,395 @@ const PetDetails: React.FC = () => {
           </div>
         </div>
         
-        <Tabs defaultValue="info" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 w-full md:w-[400px]">
-            <TabsTrigger value="info" className="flex items-center gap-1">
-              <Info className="h-4 w-4" />
-              <span className="hidden sm:inline">Info</span>
-            </TabsTrigger>
-            <TabsTrigger value="health" className="flex items-center gap-1">
-              <Heart className="h-4 w-4" />
-              <span className="hidden sm:inline">Health Records</span>
-            </TabsTrigger>
-            <TabsTrigger value="medications" className="flex items-center gap-1">
-              <Pill className="h-4 w-4" />
-              <span className="hidden sm:inline">Medications</span>
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span className="hidden sm:inline">Appointments</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          {/* Pet Info Tab */}
-          <TabsContent value="info" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PawPrint className="h-5 w-5" />
-                    Pet Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Species</p>
-                      <p className="font-medium">{pet.species}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Breed</p>
-                      <p className="font-medium">{pet.breed || 'Not specified'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Age</p>
-                      <p className="font-medium">{petAge} {petAge === 1 ? 'year' : 'years'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Gender</p>
-                      <p className="font-medium">{pet.gender || 'Not specified'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Weight</p>
-                      <p className="font-medium">{pet.weight ? `${pet.weight} kg` : 'Not specified'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Birth Date</p>
-                      <p className="font-medium">
-                        {pet.date_of_birth ? format(new Date(pet.date_of_birth), 'PP') : 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-                  
+        <PetDetailTabs petId={id || ''} activeTab={activeTab} />
+        
+        {/* Pet Info Tab */}
+        <TabsContent value="info" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PawPrint className="h-5 w-5" />
+                  Pet Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-sm text-muted-foreground mb-1">Microchip ID</h3>
-                    <p className="font-medium">{pet.microchip_id || 'No microchip information'}</p>
+                    <p className="text-sm text-muted-foreground">Species</p>
+                    <p className="font-medium">{pet.species}</p>
                   </div>
-                  
                   <div>
-                    <h3 className="text-sm text-muted-foreground mb-1">Insurance</h3>
-                    {pet.insurance_provider ? (
-                      <div>
-                        <p className="font-medium">{pet.insurance_provider}</p>
-                        {pet.policy_number && <p className="text-sm">Policy: {pet.policy_number}</p>}
-                      </div>
-                    ) : (
-                      <p>No insurance information</p>
-                    )}
+                    <p className="text-sm text-muted-foreground">Breed</p>
+                    <p className="font-medium">{pet.breed || 'Not specified'}</p>
                   </div>
-                  
-                  {pet.notes && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Age</p>
+                    <p className="font-medium">{petAge} {petAge === 1 ? 'year' : 'years'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Gender</p>
+                    <p className="font-medium">{pet.gender || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Weight</p>
+                    <p className="font-medium">{pet.weight ? `${pet.weight} kg` : 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Birth Date</p>
+                    <p className="font-medium">
+                      {pet.date_of_birth ? format(new Date(pet.date_of_birth), 'PP') : 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h3 className="text-sm text-muted-foreground mb-1">Microchip ID</h3>
+                  <p className="font-medium">{pet.microchip_id || 'No microchip information'}</p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm text-muted-foreground mb-1">Insurance</h3>
+                  {pet.insurance_provider ? (
                     <div>
-                      <h3 className="text-sm text-muted-foreground mb-1">Additional Notes</h3>
-                      <p>{pet.notes}</p>
+                      <p className="font-medium">{pet.insurance_provider}</p>
+                      {pet.policy_number && <p className="text-sm">Policy: {pet.policy_number}</p>}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Owner Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {owner ? (
-                    <>
-                      <div>
-                        <h3 className="text-sm text-muted-foreground mb-1">Name</h3>
-                        <p className="font-medium">{owner.name}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm text-muted-foreground mb-1">Contact</h3>
-                        <p className="font-medium">{owner.email}</p>
-                        {owner.phone && <p>{owner.phone}</p>}
-                      </div>
-                      
-                      {owner.address && (
-                        <div>
-                          <h3 className="text-sm text-muted-foreground mb-1">Address</h3>
-                          <p>{owner.address}</p>
-                        </div>
-                      )}
-                      
-                      <Separator />
-                      
-                      {(owner.emergency_contact_name || owner.emergency_contact_phone) && (
-                        <div>
-                          <h3 className="text-sm text-muted-foreground mb-1">Emergency Contact</h3>
-                          {owner.emergency_contact_name && (
-                            <p className="font-medium">{owner.emergency_contact_name}</p>
-                          )}
-                          {owner.emergency_contact_phone && (
-                            <p>{owner.emergency_contact_phone}</p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {(owner.preferred_vet_name || owner.preferred_vet_contact) && (
-                        <div>
-                          <h3 className="text-sm text-muted-foreground mb-1">Preferred Veterinarian</h3>
-                          {owner.preferred_vet_name && (
-                            <p className="font-medium">{owner.preferred_vet_name}</p>
-                          )}
-                          {owner.preferred_vet_contact && (
-                            <p>{owner.preferred_vet_contact}</p>
-                          )}
-                        </div>
-                      )}
-                    </>
                   ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No owner information available</p>
-                    </div>
+                    <p>No insurance information</p>
                   )}
-                </CardContent>
-                {owner && (
-                  <CardFooter>
-                    <Button variant="outline" className="w-full" onClick={() => navigate(`/owners/${owner.id}`)}>
-                      View Owner Profile
+                </div>
+                
+                {pet.notes && (
+                  <div>
+                    <h3 className="text-sm text-muted-foreground mb-1">Additional Notes</h3>
+                    <p>{pet.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Owner Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {owner ? (
+                  <>
+                    <div>
+                      <h3 className="text-sm text-muted-foreground mb-1">Name</h3>
+                      <p className="font-medium">{owner.name}</p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm text-muted-foreground mb-1">Contact</h3>
+                      <p className="font-medium">{owner.email}</p>
+                      {owner.phone && <p>{owner.phone}</p>}
+                    </div>
+                    
+                    {owner.address && (
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-1">Address</h3>
+                        <p>{owner.address}</p>
+                      </div>
+                    )}
+                    
+                    <Separator />
+                    
+                    {(owner.emergency_contact_name || owner.emergency_contact_phone) && (
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-1">Emergency Contact</h3>
+                        {owner.emergency_contact_name && (
+                          <p className="font-medium">{owner.emergency_contact_name}</p>
+                        )}
+                        {owner.emergency_contact_phone && (
+                          <p>{owner.emergency_contact_phone}</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {(owner.preferred_vet_name || owner.preferred_vet_contact) && (
+                      <div>
+                        <h3 className="text-sm text-muted-foreground mb-1">Preferred Veterinarian</h3>
+                        {owner.preferred_vet_name && (
+                          <p className="font-medium">{owner.preferred_vet_name}</p>
+                        )}
+                        {owner.preferred_vet_contact && (
+                          <p>{owner.preferred_vet_contact}</p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No owner information available</p>
+                  </div>
+                )}
+              </CardContent>
+              {owner && (
+                <CardFooter>
+                  <Button variant="outline" className="w-full" onClick={() => navigate(`/owners/${owner.id}`)}>
+                    View Owner Profile
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          </div>
+        </TabsContent>
+        
+        {/* Health Records Tab */}
+        <TabsContent value="health" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Medical Records</h2>
+            <Button onClick={() => navigate(`/records/new?petId=${id}`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Record
+            </Button>
+          </div>
+          
+          {sortedMedicalRecords.length > 0 ? (
+            <div className="space-y-4">
+              {sortedMedicalRecords.map(record => (
+                <Card key={record.id} className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate(`/records/${record.id}`)}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg">{record.reason_for_visit || 'Medical Visit'}</CardTitle>
+                        <CardDescription>
+                          {format(new Date(record.visit_date), 'PPP')}
+                          {record.veterinarian && ` • Dr. ${record.veterinarian}`}
+                        </CardDescription>
+                      </div>
+                      {record.type && <Badge>{record.type}</Badge>}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {record.diagnosis && (
+                      <div className="mb-2">
+                        <h4 className="text-sm font-medium">Diagnosis</h4>
+                        <p className="text-sm text-muted-foreground">{record.diagnosis}</p>
+                      </div>
+                    )}
+                    
+                    {record.treatment && (
+                      <div className="mb-2">
+                        <h4 className="text-sm font-medium">Treatment</h4>
+                        <p className="text-sm text-muted-foreground">{record.treatment}</p>
+                      </div>
+                    )}
+                    
+                    {record.prescriptions && record.prescriptions.length > 0 && (
+                      <div className="mb-2">
+                        <h4 className="text-sm font-medium">Prescriptions</h4>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {record.prescriptions.map((prescription: string, index: number) => (
+                            <Badge key={index} variant="outline">{prescription}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex justify-between pt-0">
+                    <div className="text-sm text-muted-foreground flex items-center">
+                      <FileText className="h-3 w-3 mr-1" />
+                      Medical Record
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      View Details
                     </Button>
                   </CardFooter>
-                )}
-              </Card>
+                </Card>
+              ))}
             </div>
-          </TabsContent>
-          
-          {/* Health Records Tab */}
-          <TabsContent value="health" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Medical Records</h2>
+          ) : (
+            <div className="text-center py-12 border rounded-lg">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-medium mb-2">No Medical Records</h3>
+              <p className="text-muted-foreground mb-6">
+                You haven't added any medical records for this pet yet.
+              </p>
               <Button onClick={() => navigate(`/records/new?petId=${id}`)}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add New Record
+                Add First Record
               </Button>
             </div>
+          )}
+        </TabsContent>
+        
+        {/* Medications Tab */}
+        <TabsContent value="medications" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Medications</h2>
+            <Button onClick={() => navigate(`/medications/new?petId=${id}`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Medication
+            </Button>
+          </div>
+          
+          <iframe 
+            src={`/medications?petId=${id}&embedded=true`} 
+            className="w-full min-h-[500px] border-none"
+            title="Pet Medications"
+          />
+        </TabsContent>
+        
+        {/* Appointments Tab */}
+        <TabsContent value="appointments" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Appointments</h2>
+            <Button onClick={() => navigate(`/appointments/new?petId=${id}`)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Schedule Appointment
+            </Button>
+          </div>
+          
+          {/* Upcoming Appointments */}
+          <div>
+            <h3 className="text-lg font-medium mb-3">Upcoming Appointments</h3>
             
-            {sortedMedicalRecords.length > 0 ? (
-              <div className="space-y-4">
-                {sortedMedicalRecords.map(record => (
-                  <Card key={record.id} className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate(`/records/${record.id}`)}>
-                    <CardHeader className="pb-2">
+            {upcomingAppointments && upcomingAppointments.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingAppointments.map((appointment: any) => (
+                  <Card key={appointment.id}>
+                    <CardContent className="p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className="text-lg">{record.reason_for_visit || 'Medical Visit'}</CardTitle>
-                          <CardDescription>
-                            {format(new Date(record.visit_date), 'PPP')}
-                            {record.veterinarian && ` • Dr. ${record.veterinarian}`}
-                          </CardDescription>
+                          <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(appointment.date), 'PPP')}
+                            {appointment.time && ` at ${appointment.time}`}
+                          </p>
                         </div>
-                        {record.type && <Badge>{record.type}</Badge>}
+                        <Badge variant="outline">{appointment.status}</Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      {record.diagnosis && (
-                        <div className="mb-2">
-                          <h4 className="text-sm font-medium">Diagnosis</h4>
-                          <p className="text-sm text-muted-foreground">{record.diagnosis}</p>
+                      
+                      {appointment.notes && (
+                        <div className="mt-2 text-sm">
+                          <p>{appointment.notes}</p>
                         </div>
                       )}
                       
-                      {record.treatment && (
-                        <div className="mb-2">
-                          <h4 className="text-sm font-medium">Treatment</h4>
-                          <p className="text-sm text-muted-foreground">{record.treatment}</p>
-                        </div>
-                      )}
-                      
-                      {record.prescriptions && record.prescriptions.length > 0 && (
-                        <div className="mb-2">
-                          <h4 className="text-sm font-medium">Prescriptions</h4>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {record.prescriptions.map((prescription: string, index: number) => (
-                              <Badge key={index} variant="outline">{prescription}</Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex justify-end gap-2 mt-3">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Cancel
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Cancel Appointment?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to cancel this appointment? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteAppointment(appointment.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Yes, cancel
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </CardContent>
-                    <CardFooter className="flex justify-between pt-0">
-                      <div className="text-sm text-muted-foreground flex items-center">
-                        <FileText className="h-3 w-3 mr-1" />
-                        Medical Record
-                      </div>
-                      <Button variant="ghost" size="sm">
-                        View Details
-                      </Button>
-                    </CardFooter>
                   </Card>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 border rounded-lg">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-medium mb-2">No Medical Records</h3>
-                <p className="text-muted-foreground mb-6">
-                  You haven't added any medical records for this pet yet.
-                </p>
-                <Button onClick={() => navigate(`/records/new?petId=${id}`)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add First Record
+              <div className="text-center py-8 border rounded-lg">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground">No upcoming appointments scheduled</p>
+                <Button variant="outline" className="mt-4" onClick={() => navigate(`/appointments/new?petId=${id}`)}>
+                  Schedule an Appointment
                 </Button>
               </div>
             )}
-          </TabsContent>
+          </div>
           
-          {/* Medications Tab */}
-          <TabsContent value="medications" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Medications</h2>
-              <Button onClick={() => navigate(`/medications/new?petId=${id}`)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Medication
-              </Button>
-            </div>
-            
-            <iframe 
-              src={`/medications?petId=${id}&embedded=true`} 
-              className="w-full min-h-[500px] border-none"
-              title="Pet Medications"
-            />
-          </TabsContent>
-          
-          {/* Appointments Tab */}
-          <TabsContent value="appointments" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Appointments</h2>
-              <Button onClick={() => navigate(`/appointments/new?petId=${id}`)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Schedule Appointment
-              </Button>
-            </div>
-            
-            {/* Upcoming Appointments */}
+          {/* Past Appointments */}
+          {pastAppointments && pastAppointments.length > 0 && (
             <div>
-              <h3 className="text-lg font-medium mb-3">Upcoming Appointments</h3>
-              
-              {upcomingAppointments && upcomingAppointments.length > 0 ? (
-                <div className="space-y-3">
-                  {upcomingAppointments.map((appointment: any) => (
-                    <Card key={appointment.id}>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {format(new Date(appointment.date), 'PPP')}
-                              {appointment.time && ` at ${appointment.time}`}
-                            </p>
-                          </div>
-                          <Badge variant="outline">{appointment.status}</Badge>
+              <h3 className="text-lg font-medium mb-3">Past Appointments</h3>
+              <div className="space-y-3">
+                {pastAppointments.slice(0, 5).map((appointment: any) => (
+                  <Card key={appointment.id}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {format(new Date(appointment.date), 'PPP')}
+                            {appointment.time && ` at ${appointment.time}`}
+                          </p>
                         </div>
-                        
-                        {appointment.notes && (
-                          <div className="mt-2 text-sm">
-                            <p>{appointment.notes}</p>
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-end gap-2 mt-3">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Cancel Appointment?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to cancel this appointment? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
-                                <AlertDialogAction 
-                                  onClick={() => handleDeleteAppointment(appointment.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Yes, cancel
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                        <Badge variant={getStatusBadgeVariant(appointment.status)}>
+                          {appointment.status}
+                        </Badge>
+                      </div>
+                      
+                      {appointment.notes && (
+                        <div className="mt-2 text-sm">
+                          <p>{appointment.notes}</p>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 border rounded-lg">
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No upcoming appointments scheduled</p>
-                  <Button variant="outline" className="mt-4" onClick={() => navigate(`/appointments/new?petId=${id}`)}>
-                    Schedule an Appointment
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            {/* Past Appointments */}
-            {pastAppointments && pastAppointments.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium mb-3">Past Appointments</h3>
-                <div className="space-y-3">
-                  {pastAppointments.slice(0, 5).map((appointment: any) => (
-                    <Card key={appointment.id}>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-medium">{appointment.reason || 'Appointment'}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {format(new Date(appointment.date), 'PPP')}
-                              {appointment.time && ` at ${appointment.time}`}
-                            </p>
-                          </div>
-                          <Badge variant={getStatusBadgeVariant(appointment.status)}>
-                            {appointment.status}
-                          </Badge>
-                        </div>
-                        
-                        {appointment.notes && (
-                          <div className="mt-2 text-sm">
-                            <p>{appointment.notes}</p>
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-end mt-3">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  
-                  {pastAppointments.length > 5 && (
-                    <div className="text-center">
-                      <Button variant="link" onClick={() => navigate('/calendar')}>
-                        View All Past Appointments
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                      )}
+                      
+                      <div className="flex justify-end mt-3">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => navigate(`/appointments/${appointment.id}/edit`)}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {pastAppointments.length > 5 && (
+                  <div className="text-center">
+                    <Button variant="link" onClick={() => navigate('/calendar')}>
+                      View All Past Appointments
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Expenses Tab */}
+        <TabsContent value="expenses" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Expenses</h2>
+            <Button onClick={() => navigate(`/pets/${id}/expenses`)}>
+              <IndianRupee className="mr-2 h-4 w-4" />
+              Manage Expenses
+            </Button>
+          </div>
+          
+          <iframe 
+            src={`/pets/${id}/expenses?embedded=true`} 
+            className="w-full min-h-[500px] border-none"
+            title="Pet Expenses"
+          />
+        </TabsContent>
       </div>
     </Layout>
   );

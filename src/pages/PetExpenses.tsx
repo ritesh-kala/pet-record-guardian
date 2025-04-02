@@ -2,7 +2,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, DollarSign } from 'lucide-react';
+import { ChevronLeft, IndianRupee } from 'lucide-react';
 import Layout from '@/components/Layout'; 
 import { Button } from '@/components/ui/button';
 import { getPetById } from '@/lib/services/petService';
@@ -71,7 +71,7 @@ const PetExpenses = () => {
           <SectionHeader
             title={`${pet.name}'s Expenses`}
             description="Track and manage expenses for your pet"
-            buttonIcon={<DollarSign className="h-4 w-4" />}
+            buttonIcon={<IndianRupee className="h-4 w-4" />}
           />
         </div>
 

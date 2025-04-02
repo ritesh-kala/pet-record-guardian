@@ -118,7 +118,7 @@ const ExpensesTable: React.FC<ExpensesTableProps> = ({
 
   // Download all expenses as CSV
   const handleExport = () => {
-    const headers = ['Date', 'Amount', 'Category', 'Description', 'Pet'];
+    const headers = ['Date', 'Amount (₹)', 'Category', 'Description', 'Pet'];
     
     const csvRows = [
       headers.join(','),
@@ -208,7 +208,7 @@ const ExpensesTable: React.FC<ExpensesTableProps> = ({
                     {format(parseISO(expense.expense_date), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell className="font-medium">
-                    ${Number(expense.amount).toFixed(2)}
+                    ₹{Number(expense.amount).toFixed(2)}
                   </TableCell>
                   <TableCell>{formatCategory(expense.category)}</TableCell>
                   <TableCell className="hidden md:table-cell max-w-[200px] truncate">

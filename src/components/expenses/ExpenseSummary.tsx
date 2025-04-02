@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { startOfMonth, endOfMonth, startOfYear, format, parseISO } from 'date-fns';
-import { DollarSign, TrendingUp, Percent } from 'lucide-react';
+import { IndianRupee, TrendingUp, Percent } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PetExpense } from '@/lib/types';
 
@@ -86,10 +86,10 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ expenses }) => {
             </CardTitle>
             <CardDescription>Total for this month</CardDescription>
           </div>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <IndianRupee className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">${metrics.totalCurrentMonth.toFixed(2)}</div>
+          <div className="text-2xl font-bold">₹{metrics.totalCurrentMonth.toFixed(2)}</div>
           <p className="text-xs text-muted-foreground mt-1">
             From {format(startOfMonth(new Date()), 'MMM d')} to {format(endOfMonth(new Date()), 'MMM d')}
           </p>
@@ -108,7 +108,7 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ expenses }) => {
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">${metrics.totalYearToDate.toFixed(2)}</div>
+          <div className="text-2xl font-bold">₹{metrics.totalYearToDate.toFixed(2)}</div>
           <p className="text-xs text-muted-foreground mt-1">
             Since {format(startOfYear(new Date()), 'MMM d, yyyy')}
           </p>
@@ -129,7 +129,7 @@ const ExpenseSummary: React.FC<ExpenseSummaryProps> = ({ expenses }) => {
         <CardContent>
           <div className="text-2xl font-bold">{metrics.topCategory.name}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            ${metrics.topCategory.amount.toFixed(2)} ({metrics.topCategory.percentage.toFixed(1)}% of monthly spending)
+            ₹{metrics.topCategory.amount.toFixed(2)} ({metrics.topCategory.percentage.toFixed(1)}% of monthly spending)
           </p>
         </CardContent>
       </Card>
