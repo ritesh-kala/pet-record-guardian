@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Eye, Calendar, Stethoscope, ImageIcon, Pill } from 'lucide-react';
+import { Eye, Calendar, Stethoscope, ImageIcon, Pill, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -101,6 +101,14 @@ const PetCard: React.FC<PetCardProps> = ({
           onClick={() => navigate(`/medications?petId=${id}`)}
         >
           <Pill className="h-4 w-4" /> Meds
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="flex-1 gap-1"
+          onClick={() => navigate(`/pets/${id}/expenses`)}
+        >
+          <DollarSign className="h-4 w-4" /> Expenses
         </Button>
       </CardFooter>
     </Card>

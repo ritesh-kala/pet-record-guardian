@@ -333,6 +333,47 @@ export type Database = {
         }
         Relationships: []
       }
+      pet_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string | null
+          description: string | null
+          expense_date: string
+          id: string
+          pet_id: string | null
+          receipt_url: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string | null
+          description?: string | null
+          expense_date: string
+          id?: string
+          pet_id?: string | null
+          receipt_url?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          expense_date?: string
+          id?: string
+          pet_id?: string | null
+          receipt_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_expenses_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           age: number | null

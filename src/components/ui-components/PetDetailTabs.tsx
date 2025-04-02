@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Calendar, Pill, Activity } from 'lucide-react';
+import { FileText, Calendar, Pill, Activity, DollarSign } from 'lucide-react';
 
 interface PetDetailTabsProps {
   petId: string;
@@ -27,6 +27,9 @@ const PetDetailTabs: React.FC<PetDetailTabsProps> = ({ petId, activeTab }) => {
       case 'appointments':
         navigate(`/calendar?petId=${petId}`);
         break;
+      case 'expenses':
+        navigate(`/pets/${petId}/expenses`);
+        break;
       default:
         navigate(`/pets/${petId}`);
     }
@@ -34,7 +37,7 @@ const PetDetailTabs: React.FC<PetDetailTabsProps> = ({ petId, activeTab }) => {
 
   return (
     <Tabs defaultValue={activeTab} onValueChange={handleTabChange} className="w-full">
-      <TabsList className="grid grid-cols-4 mb-6">
+      <TabsList className="grid grid-cols-5 mb-6">
         <TabsTrigger value="overview" className="flex items-center gap-2">
           <Activity className="h-4 w-4" />
           <span className="hidden sm:inline">Overview</span>
@@ -50,6 +53,10 @@ const PetDetailTabs: React.FC<PetDetailTabsProps> = ({ petId, activeTab }) => {
         <TabsTrigger value="appointments" className="flex items-center gap-2">
           <Calendar className="h-4 w-4" />
           <span className="hidden sm:inline">Appointments</span>
+        </TabsTrigger>
+        <TabsTrigger value="expenses" className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4" />
+          <span className="hidden sm:inline">Expenses</span>
         </TabsTrigger>
       </TabsList>
     </Tabs>

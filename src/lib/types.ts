@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface Owner {
@@ -119,6 +118,19 @@ export interface MedicationImage {
   medication_id: string;
   image_url: string;
   description?: string | null;
+  created_at?: string;
+}
+
+export type ExpenseCategory = 'veterinary' | 'medication' | 'food' | 'supplies' | 'grooming' | 'other';
+
+export interface PetExpense {
+  id?: string;
+  pet_id: string;
+  expense_date: string;
+  amount: number;
+  category: ExpenseCategory;
+  description?: string | null;
+  receipt_url?: string | null;
   created_at?: string;
 }
 

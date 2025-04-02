@@ -27,6 +27,7 @@ import CalendarView from '@/pages/CalendarView';
 import Medications from '@/pages/Medications';
 import NewMedication from '@/pages/NewMedication';
 import MedicationLog from '@/pages/MedicationLog';
+import PetExpenses from '@/pages/PetExpenses';
 
 import '@/App.css';
 
@@ -48,6 +49,7 @@ function App() {
           <Route path="/pets/new" element={<NewPet />} />
           <Route path="/pets/:id" element={<PetDetails />} />
           <Route path="/pets/:id/edit" element={<EditPet />} />
+          <Route path="/pets/:id/expenses" element={<PetExpenses />} />
           
           {/* Owners */}
           <Route path="/owners" element={<Owners />} />
